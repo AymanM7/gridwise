@@ -19,7 +19,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install -q lightgbm==4.5.0 shap==0.46.0
+# MAGIC %pip install -q lightgbm==4.5.0 shap==0.46.0 "mlflow>=2.21.3"
 
 # COMMAND ----------
 
@@ -29,6 +29,10 @@ dbutils.library.restartPython()
 
 import json
 import os
+
+# Free Edition serverless denies direct S3 PutObject into UC model storage (explicit deny on the STS role).
+# Route UC model-version uploads through Databricks presigned URLs instead (mlflow >= 2.21).
+os.environ["MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC"] = "true"
 import tempfile
 from datetime import datetime, timezone
 
@@ -385,6 +389,8 @@ def register(model, name, X_ex, run_id):
 
 
 logged_at = datetime.now(timezone.utc).replace(tzinfo=None)
+reg_errors = {}
+print("mlflow", mlflow.__version__)
 metric_rows = []
 
 # --- Model A ---
@@ -398,13 +404,17 @@ with mlflow.start_run(run_name="model_a_net_load") as run_a:
     mlflow.log_dict(mape_by_month, "test_mape_by_month.json")
     importance_plot(final_models_A["p50"], FEATURES_A, "Model A (P50) feature importance", "feature_importance_a.png")
     shap_plot(final_models_A["p50"], X_te, "shap_summary_a.png")
-    version_A = register(wrap_A, NAME_A, X_va, run_a.info.run_id)
+    try:
+        version_A = register(wrap_A, NAME_A, X_va, run_a.info.run_id)
+    except Exception as e:
+        version_A, reg_errors["a"] = None, str(e)[:400]
+        print("Model A registration failed:", reg_errors["a"])
     run_id_A = run_a.info.run_id
 
 champ_val_A, champ_ver_A = champion_metric(NAME_A, "val_mape")
 beats_baseline_A = metrics_A["test_mape"] < metrics_A["baseline_test_mape"]
 beats_champ_A = champ_val_A is None or metrics_A["val_mape"] < champ_val_A
-promote_A = beats_baseline_A and beats_champ_A
+promote_A = bool(version_A and beats_baseline_A and beats_champ_A)
 if promote_A:
     client.set_registered_model_alias(NAME_A, "champion", version_A)
 print(f"Model A v{version_A}: promote={promote_A} (beats baseline={beats_baseline_A}, "
@@ -420,13 +430,17 @@ with mlflow.start_run(run_name="model_b_spike") as run_b:
     mlflow.log_metrics({k: v for k, v in metrics_B.items() if not np.isnan(v)})
     importance_plot(clf, FEATURES_B, "Model B (spike) feature importance", "feature_importance_b.png")
     shap_plot(clf, XB_te, "shap_summary_b.png")
-    version_B = register(wrap_B, NAME_B, XB_va, run_b.info.run_id)
+    try:
+        version_B = register(wrap_B, NAME_B, XB_va, run_b.info.run_id)
+    except Exception as e:
+        version_B, reg_errors["b"] = None, str(e)[:400]
+        print("Model B registration failed:", reg_errors["b"])
     run_id_B = run_b.info.run_id
 
 champ_val_B, champ_ver_B = champion_metric(NAME_B, "val_pr_auc")
 skill_B = metrics_B["test_pr_auc"] > metrics_B["test_base_rate"]   # better than random on test
 beats_champ_B = champ_val_B is None or metrics_B["val_pr_auc"] > champ_val_B
-promote_B = bool(skill_B and beats_champ_B)
+promote_B = bool(version_B and skill_B and beats_champ_B)
 if promote_B:
     client.set_registered_model_alias(NAME_B, "champion", version_B)
 print(f"Model B v{version_B}: promote={promote_B} (champion v{champ_ver_B} val_pr_auc={champ_val_B})")
@@ -488,6 +502,8 @@ summary = {
     "registry": {"net_load": {"version": version_A, "promoted": promote_A},
                  "spike": {"version": version_B, "promoted": promote_B}},
     "experiment": exp.name,
+    "mlflow_version": mlflow.__version__,
+    "registration_errors": reg_errors,
     "runs": {"a": run_id_A, "b": run_id_B},
 }
 print(json.dumps(summary, indent=1, default=str))

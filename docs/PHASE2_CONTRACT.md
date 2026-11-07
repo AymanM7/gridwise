@@ -1,6 +1,6 @@
 # Phase 2/3 Data Contract (binding)
 
-Owner: PM / tech lead. Status: **v1, binding**. Changes go through the PM, not by editing a downstream notebook.
+Owner: PM / tech lead. Status: **v1.1, binding** (v1.1 amended 2026-11-07 by PM review round 2: solar band 40 GW, ML criteria for Model A, new Model D). Changes go through the PM, not by editing a downstream notebook.
 Catalog: `grid` (widget `catalog`). All timestamps are `TIMESTAMP` in UTC; `spark.sql.session.timeZone = UTC`.
 
 | Notebook | Owner | Writes (Delta, `CREATE OR REPLACE` / overwrite) |
@@ -139,7 +139,7 @@ Compute lags by **time** (self-join on `ts_utc − INTERVAL n HOURS`), not by ro
 | forecast rows | exactly 48 rows with `is_forecast_row`; their `temp_f` is non-null in ≥ 95% of rows |
 | EIA rescue | 2023 `demand_mw` null rate < 1% |
 | null rates (actual rows) | `demand_mw`, `net_load_mw` < 1%; `price_usd_mwh` < 1% (gap 2026-11-01..06 allowed); `temp_f` < 2% |
-| plausibility | `demand_mw` within 30–95 GW; `net_load_mw` within 3–80 GW; `wind_mw` within 0–40 GW; `solar_mw` within 0–35 GW (assert 0 rows outside, display min/max) |
+| plausibility | `demand_mw` within 30–95 GW; `net_load_mw` within 3–80 GW; `wind_mw` within 0–40 GW; `solar_mw` within 0–40 GW (v1.1: raised from 35 GW, observed max 34,982 MW) (assert 0 rows outside, display min/max) |
 | price sanity | price within −250..5,100 $/MWh (system cap 5,000) |
 | DST | `dst_fallback_distinct_utc = true` for all 3 years; spring-forward days have 23 local hours |
 | src mix | the last 24 actual hours have `src_demand = 'ercot'` |
@@ -159,12 +159,32 @@ Compute lags by **time** (self-join on `ts_utc − INTERVAL n HOURS`), not by ro
 ### ML (`04_train`)
 | check | rule |
 |---|---|
-| Model A | `test_mape < 5%` (target) and below `baseline_test_mape`; P10–P90 coverage within 70–90% |
+| Model A (v1.1, amended) | `test_mape` ≥ 30% relatively better than `baseline_test_mape`; `test_wmape` ≤ 10%; P10–P90 coverage (CQR-calibrated on val) within 70–90%. The original `< 5%` MAPE target is not reachable for net load at a 48 h lag floor and is reported as a contract deviation. |
+| Model D (v1.1, new) | `grid.ml.demand`: 3-quantile LightGBM on `FEATURES_A` + demand lags/rolls ≥ 48 h (computed from Silver by timestamp); `test_mape < 5%` (this is the headline < 5% number). Display-only net load = `demand_p50 − wind_forecast_mw − solar_forecast_mw` on forecast rows, never a model input. |
 | Model B | `test_pr_auc` > 3× base rate; recall and precision reported at the chosen threshold |
-| registry | `grid.ml.net_load@champion` and `grid.ml.spike@champion` resolve; `mlflow.pyfunc.load_model("models:/grid.ml.net_load@champion").predict(features_of_48_forecast_rows)` returns 48×3 with no nulls |
+| registry | `grid.ml.net_load@champion`, `grid.ml.spike@champion` and `grid.ml.demand@champion` resolve; `mlflow.pyfunc.load_model("models:/grid.ml.net_load@champion").predict(features_of_48_forecast_rows)` returns 48×3 with no nulls |
 
 ---
 
 ## 5. Hand-off order
 
 `02_silver` → `03_gold` → `04_train`. The Gold engineer can write SQL against the Silver schema above before Silver lands. The ML engineer can build on a provisional `gold.features` and must not rename columns. Compute budget (Free Edition): **at most 2 full runs per notebook per iteration**. Test SQL on the warehouse (`worker.sql`) before spending a notebook run.
+
+
+---
+
+## 6. Status (Nov 7, after round 2: approved)
+
+**Result:** Phase 2 (Silver, Gold) and Phase 3.1–3.4 (training, registry) pass every check. `all_pass = true` in `02_silver`, `03_gold` and `04_train`.
+
+**Deviations from v1.0**
+- Model A's test MAPE is 11.79 %, against the original target of < 5 %. Under the amended v1.1 criteria it passes: 36 % better than the 18.55 % baseline, wMAPE 9.85 %, coverage 80.7 %. The < 5 % headline is now Model D (demand), at 3.45 %.
+- The solar plausibility band was raised from 0–35 GW to 0–40 GW, because the observed max is 34,982 MW.
+- Model B leaves out ERCOT's wind and solar forecasts, because they exist only for recent days. It uses Model A's P50 instead.
+- Feature lags start at 48 h. The 1 h and 24 h lags exist only as `diag_*` columns and are banned from the models.
+
+**Open items**
+1. *(Silver / Phase 1)* 24 h of EIA wind and solar are missing (2025-12-05 06Z to 12-06 05Z), so net load is null for those hours (3.2 % of Dec 2025, within the 5 % tolerance). Backfilling needs ERCOT Public API credentials from apiexplorer.ercot.com. 4 single solar hours in 2024 are also missing, within tolerance.
+2. *(ML / 3.6)* Model A's P50 disagrees with the display net load on the forecast rows (26.6 GW vs 38.3 GW at 2026-11-07 21Z). Model A's MAPE is also 16.7–17.2 % in Oct and Nov. Both should go into `gold.forecasts`. Strain should use the display net load when ERCOT forecasts exist, recorded in a `strain_source` column.
+3. *(ML / Phase 4)* Model D's demand features are built inside `04_train` only. Move them into a shared helper so inference can score Model D.
+4. *(Gold)* Fix the notes: the price-gap fill count is 121 of 121, not 120 of 121 (the 1 was an off-by-one). Optionally add a `price_gap_2026_11_null_hours = 0` check.

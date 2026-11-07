@@ -7,6 +7,10 @@
 # MAGIC |---|---|---|
 # MAGIC | **A** | LightGBM quantile net-load forecast, 1–48 h ahead, outputs `net_load_p10/p50/p90` | `grid.ml.net_load` |
 # MAGIC | **B** | LightGBM spike classifier (`is_unbalance=True`), outputs `spike_prob` | `grid.ml.spike` |
+# MAGIC | **D** | LightGBM quantile *demand* forecast (headline accuracy, PM ruling round 1), outputs `demand_p10/p50/p90` | `grid.ml.demand` |
+# MAGIC
+# MAGIC At inference, a display-only net load `demand_p50 - ERCOT wind_forecast_mw - solar_forecast_mw` is shown next to
+# MAGIC Model A (ERCOT forecasts have no history, so they are never training features).
 # MAGIC
 # MAGIC **Leakage design (contract §2.1):** one direct model for every horizon. Features are calendar and weather at the
 # MAGIC target hour plus autoregressive lags ≥ 48 h and rolling windows ending at t−48. No `diag_*` lags, no ERCOT
@@ -60,6 +64,7 @@ TEST_DAYS = 92                           # test:  ts_utc > anchor_ts - 92 days
 SPIKE_USD = 100.0
 NAME_A = f"{catalog}.ml.net_load"
 NAME_B = f"{catalog}.ml.spike"
+NAME_D = f"{catalog}.ml.demand"
 
 # Contract §3: calendar + weather-at-t + AR lags >= 48h + AR rolling _l48. No price columns in A.
 FEATURES_A = [
@@ -81,8 +86,14 @@ PRICE_FEATURES = ["price_lag_48h", "price_lag_168h", "price_roll168_mean_l48",
                   "price_roll168_max_l48", "spike_count_168_l48"]
 FEATURES_B = FEATURES_A + PRICE_FEATURES + ["net_load_p50"]
 
+# Model D (demand): FEATURES_A plus extra demand lags / rolling windows, all >= 48 h, matched by timestamp from
+# silver.grid_hourly.demand_mw (gold.features carries only demand_lag_48h / 168h).
+DEMAND_EXTRA = ["demand_lag_72h", "demand_lag_336h", "demand_roll24_mean_l48", "demand_roll168_mean_l48",
+                "demand_roll168_max_l48"]
+FEATURES_D = FEATURES_A + DEMAND_EXTRA
+
 BANNED = {"diag_nl_lag_1h", "diag_nl_lag_24h", "wind_forecast_mw", "solar_forecast_mw", "demand_forecast_mw"}
-assert not BANNED & set(FEATURES_B), "banned feature in model inputs"
+assert not BANNED & set(FEATURES_B + FEATURES_D), "banned feature in model inputs"
 
 # COMMAND ----------
 
@@ -99,6 +110,20 @@ pdf = feat_sdf.toPandas()
 pdf["ts_utc"] = pd.to_datetime(pdf["ts_utc"])
 anchor_ts = pd.to_datetime(pdf["anchor_ts"].iloc[0])
 TEST_START = anchor_ts - pd.Timedelta(days=TEST_DAYS)   # test: ts_utc > TEST_START
+
+# Demand target + DEMAND_EXTRA features, by timestamp (never row position) on a gap-free hourly index.
+sil = spark.table(f"{catalog}.silver.grid_hourly").select("ts_utc", "demand_mw").toPandas()
+sil["ts_utc"] = pd.to_datetime(sil["ts_utc"])
+dem = sil.set_index("ts_utc")["demand_mw"].sort_index()
+dem = dem[~dem.index.duplicated(keep="last")].asfreq("h")
+H48 = pd.Timedelta(hours=48)
+pdf["y_demand_mw"] = dem.reindex(pdf["ts_utc"]).values
+for h in (72, 336):
+    pdf[f"demand_lag_{h}h"] = dem.reindex(pdf["ts_utc"] - pd.Timedelta(hours=h)).values
+pdf["demand_roll24_mean_l48"] = dem.rolling(24, min_periods=12).mean().reindex(pdf["ts_utc"] - H48).values
+pdf["demand_roll168_mean_l48"] = dem.rolling(168, min_periods=84).mean().reindex(pdf["ts_utc"] - H48).values
+pdf["demand_roll168_max_l48"] = dem.rolling(168, min_periods=84).max().reindex(pdf["ts_utc"] - H48).values
+pdf.loc[pdf["is_forecast_row"].astype(bool), "y_demand_mw"] = np.nan   # forecast rows never carry actuals
 
 hist = pdf[~pdf["is_forecast_row"].astype(bool)].sort_values("ts_utc").reset_index(drop=True)
 fcst = pdf[pdf["is_forecast_row"].astype(bool)].sort_values("ts_utc").reset_index(drop=True)
@@ -161,8 +186,10 @@ print(f"Seasonal-naive (nl_lag_168h) MAPE  val {baseline_val_mape:.2f}%  test {b
 
 # COMMAND ----------
 
-PARAMS_A = dict(n_estimators=3000, learning_rate=0.05, num_leaves=63, min_child_samples=40,
-                subsample=0.8, subsample_freq=1, colsample_bytree=0.8, reg_lambda=1.0,
+# Run 2 (lr 0.05, 63 leaves) early-stopped at ~135 trees = overfitting. Smaller, more regularised trees gave
+# val MAPE 9.98 -> 9.82 in an offline replica on the same gold.features.
+PARAMS_A = dict(n_estimators=4000, learning_rate=0.02, num_leaves=15, min_child_samples=200,
+                subsample=0.8, subsample_freq=1, colsample_bytree=0.5, reg_lambda=10.0,
                 random_state=SEED, n_jobs=-1, verbose=-1)
 QUANTILES = {"p10": 0.1, "p50": 0.5, "p90": 0.9}
 
@@ -186,34 +213,52 @@ print("best_iteration:", best_iter_A)
 
 
 class NetLoadQuantileModel(mlflow.pyfunc.PythonModel):
-    """Three LightGBM quantile boosters in one pyfunc. Output: net_load_p10, net_load_p50, net_load_p90 (sorted)."""
+    """Three LightGBM quantile boosters in one pyfunc. Output: <prefix>_p10, <prefix>_p50, <prefix>_p90 (sorted).
+    `pad_mw` is a conformal (CQR) widening of the P10/P90 band, calibrated on the validation window.
+    Used for Model A (prefix net_load) and Model D (prefix demand)."""
 
-    def __init__(self, models: dict, features: list):
+    def __init__(self, models: dict, features: list, pad_mw: float = 0.0, prefix: str = "net_load"):
         self.models = models
         self.features = features
+        self.pad_mw = float(pad_mw)
+        self.prefix = prefix
 
     def predict(self, context, model_input, params=None):
         X = pd.DataFrame(model_input)[self.features].astype("float64")
         raw = np.column_stack([self.models[q].predict(X) for q in ("p10", "p50", "p90")])
         raw.sort(axis=1)   # enforce P10 <= P50 <= P90
-        return pd.DataFrame(raw, columns=["net_load_p10", "net_load_p50", "net_load_p90"], index=X.index)
+        raw[:, 0] -= self.pad_mw
+        raw[:, 2] += self.pad_mw
+        pre = getattr(self, "prefix", "net_load")
+        return pd.DataFrame(raw, columns=[f"{pre}_p10", f"{pre}_p50", f"{pre}_p90"], index=X.index)
+
+
+def coverage(y, p, pre="net_load"):
+    return float(((y.values >= p[f"{pre}_p10"].values) & (y.values <= p[f"{pre}_p90"].values)).mean() * 100)
 
 
 wrap_val_A = NetLoadQuantileModel(val_models_A, FEATURES_A)
-wrap_A = NetLoadQuantileModel(final_models_A, FEATURES_A)
-
 pv = wrap_val_A.predict(None, X_va)
+
+# Conformalized quantile regression: raw LightGBM quantile bands under-cover (~65% for a nominal 80% band in run 2).
+# Score E = max(P10 - y, y - P90) on validation; pad = its ceil((n+1)*0.8)/n quantile. Validation only, no test peeking.
+E = np.maximum(pv["net_load_p10"].values - y_va.values, y_va.values - pv["net_load_p90"].values)
+CQR_PAD = float(np.quantile(E, min(1.0, np.ceil((len(E) + 1) * 0.8) / len(E))))
+print(f"CQR pad: {CQR_PAD:.0f} MW (raw val coverage {coverage(y_va, pv):.1f}%)")
+
+wrap_A = NetLoadQuantileModel(final_models_A, FEATURES_A, pad_mw=CQR_PAD)
 pt = wrap_A.predict(None, X_te)
 metrics_A = {
     "val_mape": mape(y_va, pv["net_load_p50"]),
-    "val_p10_p90_coverage": float(((y_va.values >= pv["net_load_p10"].values) &
-                                   (y_va.values <= pv["net_load_p90"].values)).mean() * 100),
+    "val_p10_p90_coverage_raw": coverage(y_va, pv),
+    "cqr_pad_mw": CQR_PAD,
     "test_mape": mape(y_te, pt["net_load_p50"]),
     "test_wmape": wmape(y_te, pt["net_load_p50"]),
     "test_rmse": rmse(y_te, pt["net_load_p50"]),
     "test_mae": float(np.mean(np.abs(y_te.values - pt["net_load_p50"].values))),
-    "test_p10_p90_coverage": float(((y_te.values >= pt["net_load_p10"].values) &
-                                    (y_te.values <= pt["net_load_p90"].values)).mean() * 100),
+    "test_p10_p90_coverage": coverage(y_te, pt),
+    "test_p10_p90_coverage_raw": coverage(y_te, NetLoadQuantileModel(final_models_A, FEATURES_A).predict(None, X_te)),
+    "test_mean_band_width_mw": float((pt["net_load_p90"] - pt["net_load_p10"]).mean()),
     "baseline_val_mape": baseline_val_mape,
     "baseline_test_mape": baseline_test_mape,
 }
@@ -234,6 +279,72 @@ mape_by_month = (test_A.assign(ape=np.abs(y_te.values - pt["net_load_p50"].value
                  .groupby("month")["ape"].mean().round(3).to_dict())
 print(json.dumps({k: round(v, 3) for k, v in metrics_A.items()}, indent=1))
 print("test MAPE by month:", mape_by_month)
+
+# COMMAND ----------
+
+# MAGIC %md ## 3b · Model D: demand-only LightGBM quantile P10 / P50 / P90 (headline accuracy)
+# MAGIC Same lag-48 rule as Model A. Net load = demand - wind - solar; the wind/solar part is what makes 48 h net load
+# MAGIC hard without a forecast history, so demand is modelled on its own and combined with ERCOT's wind/solar forecast
+# MAGIC at inference (display only).
+
+# COMMAND ----------
+
+dD = hist[hist["y_demand_mw"].notna()].reset_index(drop=True)
+mD = split_masks(dD)
+split_sizes_D = {k: int(v.sum()) for k, v in mD.items()}
+val_D, test_D = dD[mD["val"]], dD[mD["test"]]
+XD_tr, yD_tr = to_X(dD[mD["train"]], FEATURES_D), dD.loc[mD["train"], "y_demand_mw"]
+XD_va, yD_va = to_X(val_D, FEATURES_D), val_D["y_demand_mw"]
+XD_pt, yD_pt = to_X(dD[mD["pretest"]], FEATURES_D), dD.loc[mD["pretest"], "y_demand_mw"]
+XD_te, yD_te = to_X(test_D, FEATURES_D), test_D["y_demand_mw"]
+print("Model D rows:", split_sizes_D)
+
+best_iter_D, val_models_D, final_models_D = {}, {}, {}
+for q, alpha in QUANTILES.items():
+    m = lgb.LGBMRegressor(objective="quantile", alpha=alpha, **PARAMS_A)
+    m.fit(XD_tr, yD_tr, eval_set=[(XD_va, yD_va)], eval_metric="quantile",
+          callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
+    best_iter_D[q] = int(m.best_iteration_ or PARAMS_A["n_estimators"])
+    val_models_D[q] = m
+    final = lgb.LGBMRegressor(objective="quantile", alpha=alpha, **{**PARAMS_A, "n_estimators": best_iter_D[q]})
+    final.fit(XD_pt, yD_pt)
+    final_models_D[q] = final
+print("Model D best_iteration:", best_iter_D)
+
+pvD = NetLoadQuantileModel(val_models_D, FEATURES_D, prefix="demand").predict(None, XD_va)
+ED = np.maximum(pvD["demand_p10"].values - yD_va.values, yD_va.values - pvD["demand_p90"].values)
+CQR_PAD_D = float(np.quantile(ED, min(1.0, np.ceil((len(ED) + 1) * 0.8) / len(ED))))
+wrap_D = NetLoadQuantileModel(final_models_D, FEATURES_D, pad_mw=CQR_PAD_D, prefix="demand")
+ptD = wrap_D.predict(None, XD_te)
+metrics_D = {
+    "val_mape": mape(yD_va, pvD["demand_p50"]),
+    "cqr_pad_mw": CQR_PAD_D,
+    "test_mape": mape(yD_te, ptD["demand_p50"]),
+    "test_wmape": wmape(yD_te, ptD["demand_p50"]),
+    "test_rmse": rmse(yD_te, ptD["demand_p50"]),
+    "test_p10_p90_coverage": coverage(yD_te, ptD, "demand"),
+    "baseline_val_mape": mape(val_D["y_demand_mw"], val_D["demand_lag_168h"]),
+    "baseline_test_mape": mape(test_D["y_demand_mw"], test_D["demand_lag_168h"]),
+}
+if "benchmark_demand_fcst_test_mape" in metrics_A:
+    metrics_D["benchmark_demand_fcst_test_mape"] = metrics_A["benchmark_demand_fcst_test_mape"]
+
+# Display-only composite: demand_p50 - ERCOT wind/solar forecast. Informational score on the (few) historical
+# test hours where ERCOT forecasts exist (out-of-sample for Model D; ERCOT report vintages vary, so context only).
+comp_hist = test_D[test_D["wind_forecast_mw"].notna() & test_D["solar_forecast_mw"].notna()
+                   & test_D["y_net_load_mw"].notna()]
+if len(comp_hist):
+    comp_p = (wrap_D.predict(None, to_X(comp_hist, FEATURES_D))["demand_p50"].values
+              - comp_hist["wind_forecast_mw"].values - comp_hist["solar_forecast_mw"].values)
+    modelA_p = wrap_A.predict(None, to_X(comp_hist, FEATURES_A))["net_load_p50"].values
+    metrics_D["composite_net_load_mape_hist"] = mape(comp_hist["y_net_load_mw"], comp_p)
+    metrics_D["model_a_mape_same_hours"] = mape(comp_hist["y_net_load_mw"], modelA_p)
+    metrics_D["composite_n_hours"] = float(len(comp_hist))
+mape_by_month_D = (test_D.assign(ape=np.abs(yD_te.values - ptD["demand_p50"].values) / np.abs(yD_te.values) * 100,
+                                 month=test_D["ts_utc"].dt.strftime("%Y-%m"))
+                   .groupby("month")["ape"].mean().round(3).to_dict())
+print(json.dumps({k: round(v, 3) for k, v in metrics_D.items()}, indent=1))
+print("Model D test MAPE by month:", mape_by_month_D)
 
 # COMMAND ----------
 
@@ -445,10 +556,37 @@ if promote_B:
     client.set_registered_model_alias(NAME_B, "champion", version_B)
 print(f"Model B v{version_B}: promote={promote_B} (champion v{champ_ver_B} val_pr_auc={champ_val_B})")
 
+# --- Model D (demand) ---
+with mlflow.start_run(run_name="model_d_demand") as run_d:
+    mlflow.log_params({**{k: v for k, v in PARAMS_A.items() if k != "n_jobs"},
+                       **{f"best_iteration_{q}": i for q, i in best_iter_D.items()},
+                       "test_start_excl": str(TEST_START), "anchor_ts": str(anchor_ts),
+                       "n_features": len(FEATURES_D), **{f"d_{k}": v for k, v in split_sizes_D.items()}})
+    mlflow.log_dict({"features": FEATURES_D}, "features_d.json")
+    mlflow.log_metrics(metrics_D)
+    mlflow.log_dict(mape_by_month_D, "test_mape_by_month.json")
+    importance_plot(final_models_D["p50"], FEATURES_D, "Model D (demand P50) feature importance",
+                    "feature_importance_d.png")
+    try:
+        version_D = register(wrap_D, NAME_D, XD_va, run_d.info.run_id)
+    except Exception as e:
+        version_D, reg_errors["d"] = None, str(e)[:400]
+        print("Model D registration failed:", reg_errors["d"])
+    run_id_D = run_d.info.run_id
+
+champ_val_D, champ_ver_D = champion_metric(NAME_D, "val_mape")
+promote_D = bool(version_D and metrics_D["test_mape"] < metrics_D["baseline_test_mape"]
+                 and (champ_val_D is None or metrics_D["val_mape"] < champ_val_D))
+if promote_D:
+    client.set_registered_model_alias(NAME_D, "champion", version_D)
+print(f"Model D v{version_D}: promote={promote_D} (champion v{champ_ver_D} val_mape={champ_val_D})")
+
 # --- gold.model_metrics (one row per metric per run) ---
-for run_id, model_name, mets in [(run_id_A, NAME_A, metrics_A), (run_id_B, NAME_B, metrics_B)]:
+for run_id, model_name, mets in [(run_id_A, NAME_A, metrics_A), (run_id_B, NAME_B, metrics_B),
+                                 (run_id_D, NAME_D, metrics_D)]:
     for k, v in mets.items():
-        split = k.split("_")[0] if k.split("_")[0] in ("val", "test") else ("test" if "test" in k else "val")
+        split = (k.split("_")[0] if k.split("_")[0] in ("val", "test")
+                 else ("test" if ("test" in k or "composite" in k or "same_hours" in k) else "val"))
         if k == "threshold":
             split = "val"
         metric_rows.append((run_id, model_name, k, None if np.isnan(v) else float(v), split, logged_at))
@@ -464,7 +602,24 @@ spark.sql(f"""CREATE TABLE IF NOT EXISTS {catalog}.gold.model_metrics
 
 # COMMAND ----------
 
-reg_A_ok, reg_B_ok, reg_err = False, False, None
+reg_A_ok, reg_B_ok, reg_D_ok, reg_err, reg_err_D = False, False, False, None, None
+fcst_display = None
+try:
+    champ_D = mlflow.pyfunc.load_model(f"models:/{NAME_D}@champion")
+    out_D = champ_D.predict(to_X(fcst, FEATURES_D)).reset_index(drop=True)
+    reg_D_ok = out_D.shape == (48, 3) and not out_D.isna().any().any()
+    # Display-only: ERCOT forecasts have no training history, so this is never a model input.
+    fcst_display = pd.DataFrame({
+        "ts_utc": fcst["ts_utc"].values,
+        "demand_p50": out_D["demand_p50"].values,
+        "wind_forecast_mw": fcst["wind_forecast_mw"].values,
+        "solar_forecast_mw": fcst["solar_forecast_mw"].values,
+    })
+    fcst_display["net_load_display_mw"] = (fcst_display["demand_p50"] - fcst_display["wind_forecast_mw"]
+                                           - fcst_display["solar_forecast_mw"])
+except Exception as e:
+    reg_err_D = str(e)[:300]
+    print("demand registry check failed:", reg_err_D)
 try:
     champ_A = mlflow.pyfunc.load_model(f"models:/{NAME_A}@champion")
     out_A = champ_A.predict(to_X(fcst, FEATURES_A))
@@ -473,6 +628,8 @@ try:
     xb_f = to_X(fcst.assign(net_load_p50=out_A["net_load_p50"].values), FEATURES_B)
     out_B = champ_B.predict(xb_f)
     reg_B_ok = len(out_B) == 48 and out_B["spike_prob"].between(0, 1).all()
+    if fcst_display is not None:
+        fcst_display["net_load_p50_model_a"] = out_A["net_load_p50"].values
     display(pd.concat([fcst[["ts_utc"]], out_A.reset_index(drop=True), out_B.reset_index(drop=True)], axis=1))
 except Exception as e:
     reg_err = str(e)[:300]
@@ -483,10 +640,26 @@ def chk(value, ok):
     return {"value": value if not isinstance(value, float) else round(value, 4), "pass": bool(ok)}
 
 
+if fcst_display is not None:
+    display(fcst_display)
+
+
+def champion_version(name):
+    try:
+        return str(client.get_model_version_by_alias(name, "champion").version)
+    except Exception:
+        return None
+
+
+# Contract §4 Model A criterion as amended by PM ruling (review round 1): relative baseline improvement >= 30%,
+# test wMAPE <= 10%, P10-P90 coverage 70-90%. Raw test MAPE is informational. Demand MAPE < 5% is the headline.
+rel_impr_A = (metrics_A["baseline_test_mape"] - metrics_A["test_mape"]) / metrics_A["baseline_test_mape"]
 checks = {
-    "a_test_mape_lt_5": chk(metrics_A["test_mape"], metrics_A["test_mape"] < 5),
-    "a_test_mape_lt_baseline": chk(metrics_A["baseline_test_mape"], beats_baseline_A),
+    "a_beats_baseline_by_30pct_rel": chk(rel_impr_A, rel_impr_A >= 0.30),
+    "a_test_wmape_le_10": chk(metrics_A["test_wmape"], metrics_A["test_wmape"] <= 10),
     "a_p10_p90_coverage_70_90": chk(metrics_A["test_p10_p90_coverage"], 70 <= metrics_A["test_p10_p90_coverage"] <= 90),
+    "d_demand_test_mape_lt_5": chk(metrics_D["test_mape"], metrics_D["test_mape"] < 5),
+    "registry_demand_champion_48x3": chk(reg_err_D or "ok", reg_D_ok),
     "b_pr_auc_gt_3x_base_rate": chk(metrics_B["test_pr_auc"], metrics_B["test_pr_auc"] > 3 * metrics_B["test_base_rate"]),
     "registry_net_load_champion_48x3": chk(reg_err or "ok", reg_A_ok),
     "registry_spike_champion_48": chk(reg_err or "ok", reg_B_ok),
@@ -498,13 +671,26 @@ summary = {
     "splits": split_sizes,
     "model_a": {k: round(v, 4) for k, v in metrics_A.items()},
     "model_b": {k: (None if np.isnan(v) else round(v, 4)) for k, v in metrics_B.items()},
+    "informational": {"a_test_mape": round(metrics_A["test_mape"], 4), "a_test_wmape": round(metrics_A["test_wmape"], 4),
+                      "a_baseline_test_mape": round(metrics_A["baseline_test_mape"], 4),
+                      "headline_demand_test_mape": round(metrics_D["test_mape"], 4)},
+    "model_d": {k: round(v, 4) for k, v in metrics_D.items()},
+    "splits_d": split_sizes_D,
     "test_mape_by_month": mape_by_month,
-    "registry": {"net_load": {"version": version_A, "promoted": promote_A},
-                 "spike": {"version": version_B, "promoted": promote_B}},
+    "test_mape_by_month_d": mape_by_month_D,
+    "net_load_display_first6": (None if fcst_display is None else
+                                fcst_display.head(6).round(0).astype({"ts_utc": str}).to_dict("records")),
+    "registry": {"net_load": {"version": version_A, "promoted": promote_A, "champion": champion_version(NAME_A)},
+                 "spike": {"version": version_B, "promoted": promote_B, "champion": champion_version(NAME_B)},
+                 "demand": {"version": version_D, "promoted": promote_D, "champion": champion_version(NAME_D)}},
     "experiment": exp.name,
     "mlflow_version": mlflow.__version__,
     "registration_errors": reg_errors,
-    "runs": {"a": run_id_A, "b": run_id_B},
+    "runs": {"a": run_id_A, "b": run_id_B, "d": run_id_D},
+    "contract_deviations": ["experiment path /Users/<me>/gridwise/gridwise_experiment (PM-approved)",
+                            "Model A criterion amended by PM round-1 ruling",
+                            "CQR conformal padding of P10/P90 (A and D)",
+                            "Model D demand model + grid.ml.demand (PM round-1 ruling, option c)"],
 }
 print(json.dumps(summary, indent=1, default=str))
 

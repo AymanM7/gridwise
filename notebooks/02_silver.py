@@ -383,13 +383,13 @@ r = q1(f"""select min(demand_mw) dmin, max(demand_mw) dmax, min(net_load_mw) nmi
                min(wind_mw) wmin, max(wind_mw) wmax, min(solar_mw) smin, max(solar_mw) smax,
                min(price_usd_mwh) pmin, max(price_usd_mwh) pmax, max(price_max_usd_mwh) pmax15,
                count_if(demand_mw not between 30000 and 95000) bd, count_if(net_load_mw not between 3000 and 80000) bn,
-               count_if(wind_mw not between 0 and 40000) bw, count_if(solar_mw not between 0 and 35000) bs,
+               count_if(wind_mw not between 0 and 40000) bw, count_if(solar_mw not between 0 and 40000) bs,
                count_if(price_max_usd_mwh not between -250 and 5100 or price_usd_mwh not between -250 and 5100) bp
         from {G}""")
 chk("plaus_demand_30_95gw", f"{r.dmin}..{r.dmax}, {r.bd} out", r.bd == 0)
 chk("plaus_net_load_3_80gw", f"{r.nmin}..{r.nmax}, {r.bn} out", r.bn == 0)
 chk("plaus_wind_0_40gw", f"{r.wmin}..{r.wmax}, {r.bw} out", r.bw == 0)
-chk("plaus_solar_0_35gw", f"{r.smin}..{r.smax}, {r.bs} out", r.bs == 0)
+chk("plaus_solar_0_40gw", f"{r.smin}..{r.smax}, {r.bs} out", r.bs == 0)
 chk("price_sanity_-250_5100", f"{r.pmin}..{r.pmax} (15-min max {r.pmax15}), {r.bp} out", r.bp == 0)
 
 chk("dst_fallback_distinct_utc", [f"{x.d}: {x.utc_first}/{x.utc_second} prices {x.n_distinct_prices}" for x in fall_rows], fall_ok)

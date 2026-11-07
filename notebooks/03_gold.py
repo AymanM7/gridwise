@@ -287,6 +287,16 @@ FROM {F_} WHERE is_forecast_row""").first()
 chk("forecast_rows", {"rows": r.n, "nl_lag_48h_nonnull": r.lag_nn, "calendar_nonnull": r.cal_nn, "temp_nonnull": r.temp_nn},
     r.n == 48 and r.lag_nn >= 46 and r.cal_nn == 48)
 
+# forecast rows must carry price history features for Model B (PM round-1 requirement: >= 46/48 each)
+r = spark.sql(f"""
+SELECT count(*) n, count(price_lag_48h) p48, count(price_roll168_mean_l48) pr168,
+       count(spike_count_168_l48) sc168, count(price_lag_168h) p168
+FROM {F_} WHERE is_forecast_row""").first()
+chk("forecast_rows_price_features",
+    {"rows": r.n, "price_lag_48h": r.p48, "price_roll168_mean_l48": r.pr168,
+     "spike_count_168_l48": r.sc168, "price_lag_168h_info": r.p168},
+    r.n == 48 and r.p48 >= 46 and r.pr168 >= 46 and r.sc168 >= 46)
+
 # feature null rates on actual rows from 2023-01-15
 exprs = ", ".join(f"avg(CASE WHEN {c} IS NULL THEN 1.0 ELSE 0 END) AS {c}" for c in FEATURES_A)
 nr = spark.sql(f"SELECT {exprs} FROM {F_} WHERE NOT is_forecast_row AND ts_utc >= '2023-01-15'").first().asDict()

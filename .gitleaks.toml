@@ -1,0 +1,52 @@
+# Secret-scanning rules for GridWise.
+# Used by: scripts/check_secrets.py (local pre-commit hook) and
+#          .github/workflows/secret-scan.yml (gitleaks on every push / PR).
+# Real keys live ONLY in .env (git-ignored). Never commit them anywhere else.
+
+title = "GridWise secret scanning"
+
+[extend]
+useDefault = true   # gitleaks' built-in rules (AWS, GitHub, Slack, private keys, ...)
+
+[[rules]]
+id = "databricks-pat"
+description = "Databricks personal access token"
+regex = '''\bdapi[0-9a-f]{32}(-\d)?\b'''
+keywords = ["dapi"]
+
+[[rules]]
+id = "google-api-key"
+description = "Google / Gemini API key (classic AIza format)"
+regex = '''\bAIza[0-9A-Za-z_\-]{35}\b'''
+keywords = ["aiza"]
+
+[[rules]]
+id = "google-api-key-aq"
+description = "Google / Gemini API key (newer AQ. format)"
+regex = '''\bAQ\.[0-9A-Za-z_\-]{40,}\b'''
+keywords = ["aq."]
+
+[[rules]]
+id = "postgres-url-with-password"
+description = "Postgres / Tiger Data connection string containing a password"
+regex = '''postgres(?:ql)?://[^:\s/]+:[^@\s<>*]{6,}@[^\s/]+'''
+keywords = ["postgres://", "postgresql://"]
+
+[[rules]]
+id = "eia-api-key-assignment"
+description = "EIA API key assigned in code or config"
+regex = '''(?i)eia_api_key\s*[=:]\s*["']?[A-Za-z0-9]{30,}'''
+keywords = ["eia_api_key"]
+
+[allowlist]
+description = "Template and placeholder values"
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)\.venv/''',
+  '''(^|/)data/''',
+]
+regexes = [
+  '''postgres://tsdbadmin:PASSWORD@''',
+  '''postgres://tsdbadmin:<password>@''',
+  '''postgres://tsdbadmin:\*+@''',
+]

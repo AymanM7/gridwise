@@ -1,0 +1,35 @@
+# Hourly pipeline trigger (Phase 4.6). Free Edition notebooks can't reach ERCOT/EIA/Open-Meteo,
+# so GitHub Actions fetches the data, uploads it to the UC Volume, then runs the Databricks Job.
+# Add these repo secrets: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_JOB_ID, EIA_API_KEY, GRIDWISE_CATALOG
+name: gridwise-hourly
+
+on:
+  # Schedule is OFF until the repo secrets below are added (Phase 4.6). Then uncomment:
+  # schedule:
+  #   - cron: "7 * * * *"   # every hour at :07 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: gridwise-hourly
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: worker/requirements.txt
+      - run: pip install -r worker/requirements.txt
+      - name: Ingest + run Databricks Job
+        run: python -m worker.cli ingest --trigger-job
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_JOB_ID: ${{ secrets.DATABRICKS_JOB_ID }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          GRIDWISE_CATALOG: ${{ secrets.GRIDWISE_CATALOG }}

@@ -1,0 +1,281 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="990" viewBox="0 0 1680 990" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .t  { font-size: 15px; font-weight: 700; fill: #0f172a; }
+      .l  { font-size: 12px; fill: #334155; }
+      .h  { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; fill: #475569; }
+      .rl { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; fill: #b4532a; }
+      .f  { stroke: #475569; stroke-width: 1.8; fill: none; }
+      .fd { stroke: #475569; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+      .src { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.5; }
+      .dbx { fill: #ffffff; stroke: #ff3621; stroke-width: 1.5; }
+      .gem { fill: #eef2ff; stroke: #4f46e5; stroke-width: 1.8; }
+      .tig { fill: #fef9c3; stroke: #ca8a04; stroke-width: 1.8; }
+      .vul { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1.8; }
+      .god { fill: #ccfbf1; stroke: #0d9488; stroke-width: 1.8; }
+      .usr { fill: #f8fafc; stroke: #334155; stroke-width: 1.5; }
+      .sm { font-size: 11px; fill: #475569; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect width="1680" height="990" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="30" y="42" font-size="24" font-weight="800" fill="#0f172a">GridWise: System Architecture</text>
+  <text x="30" y="64" font-size="13" fill="#475569">ERCOT + EIA + weather → worker → Databricks Free Edition (pipeline → ML forecasts → Gemini advice) → Tiger Data → FastAPI on Vultr → gridwise.tech</text>
+
+  <!-- Column headers -->
+  <text x="130" y="112" text-anchor="middle" class="h">DATA SOURCES</text>
+  <text x="1250" y="112" text-anchor="middle" class="h">SERVING</text>
+  <text x="1535" y="112" text-anchor="middle" class="h">USERS</text>
+
+  <!-- ============ SOURCES ============ -->
+  <rect x="30" y="150" width="200" height="100" rx="10" class="src"/>
+  <text x="46" y="178" class="t">ERCOT</text>
+  <text x="46" y="200" class="l">via gridstatus (live)</text>
+  <text x="46" y="218" class="l">load · RT price</text>
+  <text x="46" y="236" class="l">wind/solar + forecasts</text>
+
+  <rect x="30" y="275" width="200" height="100" rx="10" class="src"/>
+  <text x="46" y="303" class="t">EIA-930 API</text>
+  <text x="46" y="325" class="l">hourly history 2023+</text>
+  <text x="46" y="343" class="l">demand · wind · solar</text>
+
+  <rect x="30" y="400" width="200" height="100" rx="10" class="src"/>
+  <text x="46" y="428" class="t">Open-Meteo API</text>
+  <text x="46" y="450" class="l">Houston · DFW</text>
+  <text x="46" y="468" class="l">Austin · San Antonio</text>
+  <text x="46" y="486" class="l">archive + forecast</text>
+
+  <rect x="30" y="580" width="200" height="170" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8"/>
+  <text x="46" y="608" class="t">GridWise worker</text>
+  <text x="46" y="630" class="l">GitHub Actions · hourly</text>
+  <text x="46" y="648" class="l">fetch → parquet</text>
+  <text x="46" y="666" class="l">upload INTO UC Volume</text>
+  <text x="46" y="684" class="l">trigger Databricks Job</text>
+  <text x="46" y="702" class="l">publish: Gemini + Tiger</text>
+  <text x="46" y="728" class="sm">Free Edition blocks egress</text>
+
+  <!-- ============ DATABRICKS CONTAINER ============ -->
+  <rect x="270" y="80" width="820" height="830" rx="16" fill="#fff7f4" stroke="#ff3621" stroke-width="2.2"/>
+  <text x="300" y="108" font-size="16" font-weight="800" fill="#ff3621" letter-spacing="1.5">DATABRICKS LAKEHOUSE</text>
+  <text x="300" y="127" font-size="12" fill="#9a3412">Unity Catalog: grid · Delta Lake · serverless compute · MLflow</text>
+
+  <!-- Row 1: Medallion -->
+  <text x="300" y="147" class="rl">MEDALLION PIPELINE</text>
+
+  <rect x="300" y="155" width="170" height="110" rx="10" class="dbx"/>
+  <text x="314" y="183" class="t">Auto Loader</text>
+  <text x="314" y="205" class="l">UC Volume → Delta</text>
+  <text x="314" y="223" class="l">incremental</text>
+  <text x="314" y="241" class="l">availableNow</text>
+
+  <rect x="500" y="155" width="170" height="110" rx="10" class="dbx" fill="#fbeee4"/>
+  <text x="514" y="183" class="t">Bronze</text>
+  <text x="514" y="205" class="l">raw Delta tables</text>
+  <text x="514" y="223" class="l">stored as-is</text>
+  <text x="514" y="241" class="l">+ _ingested_at</text>
+
+  <rect x="700" y="155" width="170" height="110" rx="10" class="dbx" fill="#f1f5f9"/>
+  <text x="714" y="183" class="t">Silver</text>
+  <text x="714" y="205" class="l">hourly UTC grid</text>
+  <text x="714" y="223" class="l">DST duplicate fix</text>
+  <text x="714" y="241" class="l">grid ⨝ weather</text>
+
+  <rect x="900" y="155" width="170" height="110" rx="10" class="dbx" fill="#fef3c7"/>
+  <text x="914" y="183" class="t">Gold</text>
+  <text x="914" y="205" class="l">net load = D − W − S</text>
+  <text x="914" y="223" class="l">strain index 0–100</text>
+  <text x="914" y="241" class="l">features · spikes</text>
+
+  <!-- Row 2: ML -->
+  <text x="300" y="317" class="rl">MACHINE LEARNING</text>
+
+  <rect x="300" y="325" width="170" height="110" rx="10" class="dbx" stroke-dasharray="6 4"/>
+  <text x="314" y="353" class="t">MLflow + UC</text>
+  <text x="314" y="375" class="l">Model Registry</text>
+  <text x="314" y="393" class="l">experiments · metrics</text>
+  <text x="314" y="411" class="l">@champion aliases</text>
+
+  <rect x="500" y="325" width="170" height="110" rx="10" class="dbx"/>
+  <text x="514" y="353" class="t">Model A</text>
+  <text x="514" y="375" class="l">LightGBM net load</text>
+  <text x="514" y="393" class="l">24–48 h ahead</text>
+  <text x="514" y="411" class="l">P10 · P50 · P90</text>
+
+  <rect x="700" y="325" width="170" height="110" rx="10" class="dbx"/>
+  <text x="714" y="353" class="t">SHAP explainer</text>
+  <text x="714" y="375" class="l">top-3 drivers / hour</text>
+  <text x="714" y="393" class="l">→ "Why Red?"</text>
+  <rect x="815" y="315" width="48" height="20" rx="10" fill="#16a34a"/>
+  <text x="839" y="329" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">NEW</text>
+
+  <rect x="900" y="325" width="170" height="110" rx="10" class="dbx"/>
+  <text x="914" y="353" class="t">Model B</text>
+  <text x="914" y="375" class="l">spike classifier</text>
+  <text x="914" y="393" class="l">P(RT price &gt; $100)</text>
+
+  <!-- Row 3: AI & analytics -->
+  <text x="300" y="507" class="rl">AI &amp; ANALYTICS</text>
+
+  <rect x="300" y="525" width="170" height="110" rx="10" class="dbx"/>
+  <text x="314" y="553" class="t">Genie space</text>
+  <text x="314" y="575" class="l">natural-language Q&amp;A</text>
+  <text x="314" y="593" class="l">over Gold tables</text>
+
+  <rect x="500" y="525" width="170" height="110" rx="10" class="gem"/>
+  <text x="514" y="553" class="t">Gemini · AI Gateway</text>
+  <text x="514" y="575" class="l">ai_query() / worker</text>
+  <text x="514" y="593" class="l">daily advice</text>
+  <text x="514" y="611" class="l">"Why Red?" sentences</text>
+
+  <rect x="700" y="525" width="170" height="110" rx="10" class="dbx"/>
+  <text x="714" y="553" class="t">Report card</text>
+  <text x="714" y="575" class="l">yesterday's forecast</text>
+  <text x="714" y="593" class="l">vs. actuals</text>
+  <text x="714" y="611" class="l">MAPE · recall · band</text>
+  <rect x="815" y="515" width="48" height="20" rx="10" fill="#16a34a"/>
+  <text x="839" y="529" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">NEW</text>
+
+  <rect x="900" y="525" width="170" height="110" rx="10" class="dbx"/>
+  <text x="914" y="553" class="t">Ripple simulator</text>
+  <text x="914" y="575" class="l">what-if load shift</text>
+  <text x="914" y="593" class="l">re-scores Model B</text>
+  <text x="914" y="611" class="l">scenario grid</text>
+  <rect x="1015" y="515" width="48" height="20" rx="10" fill="#16a34a"/>
+  <text x="1039" y="529" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">NEW</text>
+
+  <!-- Gold serving band -->
+  <rect x="300" y="690" width="770" height="60" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="316" y="714" class="t">Gold serving tables</text>
+  <text x="316" y="736" class="l">forecasts · forecast_drivers · daily_advice · shift_scenarios · report_card · strain_hourly</text>
+
+  <!-- Workflows band -->
+  <rect x="300" y="810" width="770" height="80" rx="10" fill="#ffffff" stroke="#ff3621" stroke-width="1.5" stroke-dasharray="7 4"/>
+  <text x="316" y="834" class="t">Databricks Workflows: hourly Job</text>
+  <text x="316" y="856" class="l">bronze → silver → gold → predict → explain → ripple → report_card  (triggered hourly by the worker)</text>
+  <text x="316" y="876" class="l">Unity Catalog governance · Free Edition serverless · train task runs manually / weekly</text>
+
+  <!-- ============ SERVING ============ -->
+  <rect x="1140" y="150" width="220" height="130" rx="10" class="tig"/>
+  <text x="1156" y="178" class="t">Tiger Data</text>
+  <text x="1156" y="200" class="l">TimescaleDB hypertables</text>
+  <text x="1156" y="218" class="l">continuous aggregates</text>
+  <text x="1156" y="236" class="l">hourly + daily rollups</text>
+  <text x="1156" y="254" class="l">ms-latency chart queries</text>
+
+  <rect x="1140" y="360" width="220" height="150" rx="10" class="vul"/>
+  <text x="1156" y="388" class="t">FastAPI · Vultr</text>
+  <text x="1156" y="410" class="l">Docker + Caddy (HTTPS)</text>
+  <text x="1156" y="432" class="l">/forecast   /advice</text>
+  <text x="1156" y="450" class="l">/history   /simulate</text>
+  <text x="1156" y="468" class="l">/chat   /report-card</text>
+  <text x="1156" y="486" class="l">/forecast/drivers</text>
+
+  <rect x="1140" y="590" width="220" height="100" rx="10" class="gem"/>
+  <text x="1156" y="618" class="t">Gemini API</text>
+  <text x="1156" y="640" class="l">chat box answers</text>
+  <text x="1156" y="658" class="l">grounded in forecast JSON</text>
+
+  <!-- ============ USERS ============ -->
+  <rect x="1420" y="150" width="230" height="100" rx="10" class="god"/>
+  <text x="1436" y="178" class="t">GoDaddy domain</text>
+  <text x="1436" y="200" class="l">gridwise.tech</text>
+  <text x="1436" y="218" class="l">A record → Vultr IP</text>
+
+  <rect x="1420" y="360" width="230" height="150" rx="10" class="usr"/>
+  <text x="1436" y="388" class="t">Next.js dashboard</text>
+  <text x="1436" y="410" class="l">strain timeline + P10–P90 band</text>
+  <text x="1436" y="428" class="l">spike risk · best hours</text>
+  <text x="1436" y="446" class="l">Gemini advice · chat</text>
+  <text x="1436" y="464" class="l">Ripple · Why Red? · report card</text>
+  <text x="1436" y="482" class="l">history charts</text>
+
+  <rect x="1420" y="590" width="230" height="100" rx="10" class="usr"/>
+  <text x="1436" y="618" class="t">Texans · EV owners</text>
+  <text x="1436" y="640" class="l">TOU &amp; free-nights plans</text>
+  <text x="1436" y="658" class="l">shift usage off-peak</text>
+
+  <rect x="1420" y="750" width="230" height="80" rx="10" class="usr"/>
+  <text x="1436" y="778" class="t">Analysts · judges</text>
+  <text x="1436" y="800" class="l">explore grid history</text>
+
+  <!-- ============ ARROWS ============ -->
+  <!-- sources → worker (bus) → Auto Loader -->
+  <path d="M230 200 H246" class="f"/>
+  <path d="M230 325 H246" class="f"/>
+  <path d="M230 450 H246" class="f"/>
+  <path d="M246 200 V640 H236" class="f" marker-end="url(#a)"/>
+  <path d="M230 700 H258 V210 H294" class="f" stroke="#16a34a" stroke-width="2.2" marker-end="url(#a)"/>
+
+  <!-- medallion -->
+  <path d="M470 210 H494" class="f" marker-end="url(#a)"/>
+  <path d="M670 210 H694" class="f" marker-end="url(#a)"/>
+  <path d="M870 210 H894" class="f" marker-end="url(#a)"/>
+
+  <!-- gold → models -->
+  <path d="M985 265 V319" class="f" marker-end="url(#a)"/>
+  <path d="M985 295 H585 V319" class="f" marker-end="url(#a)"/>
+
+  <!-- ML row -->
+  <path d="M500 380 H476" class="fd" marker-end="url(#a)"/>
+  <path d="M670 380 H694" class="f" marker-end="url(#a)"/>
+  <path d="M640 435 V455 H960 V441" class="f" marker-end="url(#a)"/>
+  <text x="800" y="470" class="sm" text-anchor="middle">forecast as feature</text>
+
+  <!-- ML → AI -->
+  <path d="M560 435 V519" class="f" marker-end="url(#a)"/>
+  <path d="M740 435 V485 H610 V519" class="f" marker-end="url(#a)"/>
+  <path d="M1010 435 V519" class="f" marker-end="url(#a)"/>
+
+  <!-- AI → gold serving -->
+  <path d="M585 635 V684" class="f" marker-end="url(#a)"/>
+  <path d="M785 635 V684" class="f" marker-end="url(#a)"/>
+  <path d="M985 635 V684" class="f" marker-end="url(#a)"/>
+  <path d="M385 690 V641" class="f" marker-end="url(#a)"/>
+
+  <!-- workflows orchestrate everything -->
+  <path d="M1080 850 H1085 V210 H1076" class="fd" stroke="#ff3621" marker-end="url(#a)"/>
+
+  <!-- sync to Tiger -->
+  <path d="M1070 720 H1110 V215 H1134" class="f" stroke-width="2.4" marker-end="url(#a)"/>
+  <text transform="translate(1124 520) rotate(-90)" class="sm" text-anchor="middle">hourly sync (worker publish)</text>
+
+  <!-- serving -->
+  <path d="M1250 280 V354" class="f" marker-end="url(#a)"/>
+  <path d="M1250 516 V584" class="f" marker-start="url(#a)" marker-end="url(#a)"/>
+  <path d="M1366 435 H1414" class="f" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text x="1390" y="427" class="sm" text-anchor="middle">JSON</text>
+
+  <!-- users -->
+  <path d="M1535 250 V354" class="f" marker-end="url(#a)"/>
+  <path d="M1535 590 V516" class="f" marker-end="url(#a)"/>
+
+  <!-- analysts → Genie -->
+  <path d="M1420 790 H285 V580 H294" class="fd" marker-end="url(#a)"/>
+  <text x="1250" y="782" class="sm" text-anchor="middle">ask questions in Genie (natural language)</text>
+
+  <!-- ============ LEGEND ============ -->
+  <g transform="translate(30 940)">
+    <path d="M0 10 H40" class="f" marker-end="url(#a)"/>
+    <text x="50" y="14" class="l">data flow</text>
+    <path d="M130 10 H170" class="fd" marker-end="url(#a)"/>
+    <text x="180" y="14" class="l">orchestration / registry / query</text>
+    <rect x="390" y="0" width="20" height="20" rx="4" fill="#fff7f4" stroke="#ff3621"/>
+    <text x="418" y="14" class="l">Databricks</text>
+    <rect x="500" y="0" width="20" height="20" rx="4" class="gem"/>
+    <text x="528" y="14" class="l">Gemini</text>
+    <rect x="590" y="0" width="20" height="20" rx="4" class="tig"/>
+    <text x="618" y="14" class="l">Tiger Data</text>
+    <rect x="700" y="0" width="20" height="20" rx="4" class="vul"/>
+    <text x="728" y="14" class="l">Vultr</text>
+    <rect x="780" y="0" width="20" height="20" rx="4" class="god"/>
+    <text x="808" y="14" class="l">GoDaddy</text>
+    <rect x="880" y="0" width="48" height="20" rx="10" fill="#16a34a"/>
+    <text x="904" y="14" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">NEW</text>
+    <text x="936" y="14" class="l">novel feature (Ripple · Why Red? · Report card)</text>
+  </g>
+</svg>

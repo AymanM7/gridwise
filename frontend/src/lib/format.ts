@@ -3,9 +3,9 @@ import type { Level } from "./types";
 export const TZ = "America/Chicago";
 
 export const LEVEL_COLOR: Record<Level, string> = {
-  green: "#22c55e",
-  yellow: "#eab308",
-  red: "#ef4444",
+  green: "#34d399",
+  yellow: "#fbbf24",
+  red: "#f43f5e",
 };
 
 export const LEVEL_TEXT: Record<Level, string> = {

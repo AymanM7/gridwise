@@ -1,71 +1,102 @@
+"use client";
+
+import { Clock, Info, Sparkles } from "lucide-react";
 import type { Advice } from "../lib/types";
 import { dayHourLabel, shortDay } from "../lib/format";
-import { Badge, Empty } from "./ui";
-
-const ICONS: Record<string, string> = {
-  snowflake: "❄️",
-  ac: "❄️",
-  thermostat: "🌡️",
-  shirt: "👕",
-  laundry: "👕",
-  dishwasher: "🍽️",
-  car: "🚗",
-  ev: "🚗",
-  plug: "🔌",
-  pool: "🏊",
-  sun: "☀️",
-  moon: "🌙",
-  bolt: "⚡",
-  alert: "⚠️",
-  clock: "🕐",
-  home: "🏠",
-};
-
-function iconFor(name: string): string {
-  if (!name) return "💡";
-  if (/[^\x00-\x7F]/.test(name)) return name; // already an emoji
-  return ICONS[name.toLowerCase()] ?? "💡";
-}
+import { Stagger, StaggerItem } from "./motion";
+import { Empty } from "./ui";
+import { Eyebrow, adviceIcon, stripEmoji } from "./insights/shared";
 
 export function AdviceBadge({ by }: { by: Advice["generated_by"] }) {
-  return by === "gemini" ? <Badge tone="accent">✨ Gemini</Badge> : <Badge>Rules</Badge>;
+  if (by === "gemini") {
+    return (
+      <span className="gw-gemini inline-flex shrink-0">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-sky-100">
+          <Sparkles aria-hidden className="h-3 w-3 text-accent" />
+          Gemini
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-line bg-panel-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+      Rules
+    </span>
+  );
 }
 
 export default function AdvicePanel({ advice }: { advice: Advice }) {
+  const tips = advice.tips
+    .map((t) => ({ ...t, text: stripEmoji(t.text), window: t.window ? stripEmoji(t.window) : null }))
+    .filter((t) => t.text);
+  const best = [...advice.best_hours]
+    .slice(0, 6)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted">
-        Plan for <span className="text-text">{shortDay(advice.date_local)}</span>
-        {advice.generated_by === "rules" && " · Gemini was unavailable, so this plan is built from the best and worst hours."}
-      </p>
-      <p className="font-medium">{advice.headline}</p>
-      {advice.tips.length ? (
-        <ul className="space-y-2">
-          {advice.tips.map((t, i) => (
-            <li key={i} className="flex gap-3 rounded-lg bg-panel-2 px-3 py-2 text-sm">
-              <span aria-hidden className="text-lg leading-5">
-                {iconFor(t.icon)}
-              </span>
-              <div>
-                <div>{t.text}</div>
-                {t.window && <div className="mt-0.5 text-xs text-muted">🕐 {t.window}</div>}
-              </div>
-            </li>
-          ))}
-        </ul>
+    <div className="space-y-5">
+      <div>
+        <Eyebrow>Plan for {shortDay(advice.date_local)}</Eyebrow>
+        <p className="mt-2 text-[17px] font-semibold leading-snug tracking-tight text-text text-pretty">
+          {stripEmoji(advice.headline)}
+        </p>
+        {advice.generated_by === "rules" && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+            <Info aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            Built from the forecast&apos;s best and worst hours (Gemini unavailable).
+          </p>
+        )}
+      </div>
+
+      {tips.length ? (
+        <Stagger as="ol" className="relative space-y-1" stagger={0.07}>
+          {/* timeline rail */}
+          <span aria-hidden className="absolute bottom-5 left-[17px] top-5 w-px bg-line" />
+          {tips.map((t, i) => {
+            const Icon = adviceIcon(t.icon, t.text);
+            return (
+              <StaggerItem as="li" key={i} className="relative">
+                <div className="group flex gap-3 rounded-xl px-0 py-2 transition-colors">
+                  <span
+                    aria-hidden
+                    className="relative z-10 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-panel-2 text-muted transition-colors duration-200 group-hover:border-line-strong group-hover:text-text"
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="text-sm leading-relaxed text-text/90 text-pretty">{t.text}</p>
+                    {t.window && (
+                      <span className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] font-medium text-muted">
+                        <Clock aria-hidden className="h-3 w-3" />
+                        <span className="tabular">{t.window}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </StaggerItem>
+            );
+          })}
+        </Stagger>
       ) : (
         <Empty>No tips for this forecast.</Empty>
       )}
-      {advice.best_hours.length > 0 && (
-        <div className="text-xs text-muted">
-          Greenest hours:{" "}
-          <span className="text-text">
-            {[...advice.best_hours]
-              .slice(0, 6)
-              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-              .map((h) => dayHourLabel(h))
-              .join(" · ")}
-          </span>
+
+      {best.length > 0 && (
+        <div className="border-t border-line pt-4">
+          <Eyebrow className="mb-2 flex items-center gap-1.5">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-lvl-green" />
+            Greenest hours
+          </Eyebrow>
+          <ul className="flex flex-wrap gap-1.5">
+            {best.map((h) => (
+              <li
+                key={h}
+                className="tabular rounded-md border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] font-medium text-muted"
+              >
+                {dayHourLabel(h)}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

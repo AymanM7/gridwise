@@ -1,16 +1,27 @@
 @import "tailwindcss";
 
+/* ───────────────────────── GridWise design tokens ─────────────────────────
+   One near-black canvas, two surface steps, hairline borders, one accent.
+   Strain colors are the ONLY saturated colors on the page besides the accent,
+   so green / amber / red always mean "grid strain". */
 :root {
-  --bg: #0a0b0d;
-  --panel: #121418;
-  --panel-2: #181b21;
-  --line: #262a32;
-  --text: #e8eaed;
-  --muted: #9aa1ac;
-  --green: #22c55e;
-  --yellow: #eab308;
-  --red: #ef4444;
-  --accent: #38bdf8;
+  --bg: #07080a;
+  --panel: #0e1013;
+  --panel-2: #14171c;
+  --panel-3: #1b1f26;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text: #eceef1;
+  --muted: #8b929e;
+  --faint: #7d838e; /* ≥4.5:1 on panel (AA) */
+
+  --green: #34d399;  /* emerald-400 */
+  --yellow: #fbbf24; /* amber-400 */
+  --red: #f43f5e;    /* rose-500 */
+  --accent: #7dd3fc; /* sky-300: interactive / brand */
+
+  --radius: 18px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
 }
 
@@ -18,41 +29,161 @@
   --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-panel-2: var(--panel-2);
+  --color-panel-3: var(--panel-3);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-text: var(--text);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-lvl-green: var(--green);
   --color-lvl-yellow: var(--yellow);
   --color-lvl-red: var(--red);
   --color-accent: var(--accent);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-pulse-dot: pulse-dot 2s var(--ease-out) infinite;
+  --animate-border-spin: border-spin 6s linear infinite;
 }
 
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes border-spin {
+  to { --angle: 360deg; }
+}
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+html {
+  background: var(--bg);
+}
+/* body stays transparent so the fixed aurora shader layer (z-index -10) shows through */
 html,
 body {
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
   min-height: 100vh;
 }
 
+/* Dot-grid texture layered over the aurora shader (see shader/Backgrounds.tsx). */
+.page-dots {
+  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0) 0 0 / 24px 24px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+}
+
+/* Surface: frosted glass over the shader, gradient hairline border, inner top light.
+   Use via <Card>. The ::before draws a 1px gradient border with a mask so the
+   border brightens at the top edge like light catching glass. */
+.surface {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01) 140px),
+    rgba(12, 14, 18, 0.62);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 30px 60px -30px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+.surface::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05) 40%, rgba(125, 211, 252, 0.10));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.surface:hover {
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 40px 80px -36px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(125, 211, 252, 0.08),
+    0 0 40px -12px rgba(125, 211, 252, 0.12);
+}
+
+/* Animated gradient text for hero accents. */
+.text-shimmer {
+  background: linear-gradient(90deg, currentColor 0%, #fff 45%, currentColor 60%, currentColor 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* Shimmer skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--panel-2) 0%, var(--panel-3) 50%, var(--panel-2) 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
-input[type="range"] {
-  accent-color: var(--accent);
+::selection {
+  background: rgba(125, 211, 252, 0.25);
 }
 
 .recharts-tooltip-wrapper {
   outline: none;
 }
+.recharts-surface:focus,
+.recharts-wrapper:focus {
+  outline: none;
+}
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* agent B ─────────────────────────────────────────────────────────────────
+   Insight panels: Gemini badge border, slider thumb glow. */
+.gw-gemini {
+  position: relative;
+  isolation: isolate;
+  border-radius: 9999px;
+  padding: 1px;
+  background: conic-gradient(from var(--angle), rgba(125, 211, 252, 0.15), #7dd3fc, #f0f9ff, rgba(125, 211, 252, 0.15) 60%);
+  animation: var(--animate-border-spin);
+}
+.gw-gemini > span {
+  border-radius: 9999px;
+  background: var(--panel);
 }

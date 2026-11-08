@@ -47,7 +47,7 @@ The key metric is **net load = demand − wind − solar**: the part of demand t
 4. **AI layer:** **Gemini** writes the daily advice and "Why Red?" sentences inside the pipeline; **Genie** answers natural-language questions over the Gold tables.
 5. **Serving:** forecasts sync to **Tiger Data** (TimescaleDB hypertables + continuous aggregates), a **FastAPI** service on **Vultr** serves them, and the dashboard lives on a **GoDaddy** domain.
 
-More detail: [ARCHITECTURE.md](ARCHITECTURE.md) (box diagrams for every flow) · [TECH_STACK.md](TECH_STACK.md)
+More detail: [ARCHITECTURE.md](ARCHITECTURE.md) (box diagrams for every flow) · [DASHBOARD.md](DASHBOARD.md) (dashboard architecture + user guide) · [JUDGES.md](JUDGES.md) (demo script) · [TECH_STACK.md](TECH_STACK.md)
 
 ### A detail judges ask about: daylight saving time
 
@@ -114,6 +114,14 @@ python -m ingestion.cli ingest --trigger-job   # the hourly unit: fetch → uplo
 ### Serving: Tiger Data, API, dashboard
 
 Needs `TIGER_DATABASE_URL` in `.env` (Tiger Data / TimescaleDB) and Node 22.
+
+**One command for everything:** syncs Tiger, starts the API on :8000 and the dashboard on :3000, then opens the browser. Ctrl+C stops it all.
+
+```powershell
+python -m tools.dev              # add --no-sync to skip the Tiger sync, --fixtures for demo data only
+```
+
+Or start each part separately:
 
 ```powershell
 pip install -r backend/requirements.txt

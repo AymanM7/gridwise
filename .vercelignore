@@ -1,0 +1,20 @@
+# API project (repo root) uploads only what api/index.py needs. NEVER upload secrets.
+.env
+.env.*
+**/.env
+**/.env.*
+.venv
+node_modules
+**/node_modules
+frontend
+ingestion
+pipeline
+ml
+db
+infra
+docs
+data
+tools
+.github
+*.md
+!backend/**

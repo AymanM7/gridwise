@@ -1,0 +1,31 @@
+# SITE_ADDRESS comes from docker-compose:
+#   ":80"                       → serve plain HTTP on the server IP (before a domain exists)
+#   "gridwise.tech www.gridwise.tech" → Caddy fetches Let's Encrypt certificates automatically
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /api/* {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

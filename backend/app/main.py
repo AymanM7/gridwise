@@ -6,15 +6,19 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from . import core, db, gemini, refresh
-from .config import CORS_ORIGINS, STALE_MINUTES
+from .config import (CHAT_GEMINI_PER_MIN, CHAT_MAX_CHARS, CHAT_PER_IP_PER_MIN, CORS_ORIGINS,
+                     STALE_MINUTES)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("gridwise.api")
@@ -207,7 +211,41 @@ def report_card(days: int = Query(7, ge=1, le=120)):
 
 # ----------------------------------------------------------------------------- chat
 class ChatIn(BaseModel):
-    question: str = Field(..., min_length=1, max_length=1000)
+    question: str = Field(..., min_length=1, max_length=CHAT_MAX_CHARS)
+
+
+_hits: dict[str, deque] = defaultdict(deque)   # client ip -> recent /api/chat timestamps
+_gemini_hits: deque = deque()
+_rl_lock = threading.Lock()
+
+
+def _client_ip(request: Request) -> str:
+    # Behind Caddy: it overwrites X-Forwarded-For with the real client (incoming XFF is untrusted by default),
+    # and the api container is not published, so the header cannot be forged from outside.
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() or (request.client.host if request.client else "?")
+
+
+def _allow(q: deque, limit: int, now: float) -> bool:
+    while q and now - q[0] > 60:
+        q.popleft()
+    if len(q) >= limit:
+        return False
+    q.append(now)
+    return True
+
+
+def _rate_limit(request: Request) -> bool:
+    """429 if this IP is over CHAT_PER_IP_PER_MIN; returns False when the global Gemini budget is spent."""
+    now = time.monotonic()
+    ip = _client_ip(request)
+    with _rl_lock:
+        if not _allow(_hits[ip], CHAT_PER_IP_PER_MIN, now):
+            raise HTTPException(429, "too many questions; try again in a minute", headers={"Retry-After": "60"})
+        if len(_hits) > 10_000:                  # bound memory: drop idle IPs
+            for k in [k for k, q in _hits.items() if not q or now - q[-1] > 60]:
+                del _hits[k]
+        return _allow(_gemini_hits, CHAT_GEMINI_PER_MIN, now)
 
 
 def _rules_answer(hs: list[dict], summ: dict) -> dict:
@@ -224,8 +262,9 @@ def _rules_answer(hs: list[dict], summ: dict) -> dict:
 
 
 @app.post("/api/chat")
-def chat(body: ChatIn):
+def chat(body: ChatIn, request: Request):
+    use_gemini = _rate_limit(request)
     run_ts, hs, adv = _advice_bundle()
     summ = core.summarize(hs)
-    out = gemini.ask(body.question, core.public(hs), summ, adv)
+    out = gemini.ask(body.question, core.public(hs), summ, adv) if use_gemini else None
     return out if out and out["answer"] else _rules_answer(hs, summ)

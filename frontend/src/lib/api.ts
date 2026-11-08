@@ -20,6 +20,7 @@ import reportFx from "../../fixtures/report_card.json";
 import healthFx from "../../fixtures/health.json";
 import refFx from "../../fixtures/strain_reference.json";
 
+// "/" (production behind Caddy) → same-origin relative calls ("/api/..."); unset → local dev API.
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 export const USE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "1";
 

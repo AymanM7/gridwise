@@ -1,0 +1,13 @@
+.venv
+**/node_modules
+**/.next
+data
+.env
+.env.*
+.git
+**/__pycache__
+**/.env
+**/.env.*
+!**/.env.example
+.databricks
+mlruns

@@ -1,0 +1,44 @@
+# GridWise production stack on one Vultr VM.
+#   caddy (:80/:443, automatic HTTPS) ─┬─ /api/*  → api (FastAPI :8000)
+#                                      └─ /*      → web (Next.js :3000)
+# Tiger Data and Databricks stay in the cloud; this VM only serves.
+#
+# On the server (from /opt/gridwise):
+#   docker compose -f infra/docker-compose.yml --env-file .env up -d --build
+name: gridwise
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    env_file: ../.env          # TIGER_DATABASE_URL, GEMINI_API_KEY, DATABRICKS_* (never committed)
+    environment:
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost}
+    restart: unless-stopped
+    expose: ["8000"]
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /
+    restart: unless-stopped
+    expose: ["3000"]
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}   # ":80" = plain HTTP on the IP; "gridwise.tech" = auto HTTPS
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api, web]
+
+volumes:
+  caddy_data:
+  caddy_config:

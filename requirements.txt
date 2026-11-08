@@ -1,0 +1,9 @@
+# Vercel Python runtime deps for api/index.py (the GridWise API as serverless functions).
+# Local dev / Docker use backend/requirements.txt; ingestion uses ingestion/requirements.txt.
+fastapi>=0.115,<1
+psycopg[binary]>=3.2,<4
+psycopg-pool>=3.2,<4
+pydantic>=2.7,<3
+requests>=2.31
+python-dotenv>=1.0
+tzdata>=2024.1

@@ -10,3 +10,7 @@ node_modules/
 mlruns/
 data/
 .DS_Store
+
+.vercel
+.env*
+!.env.example

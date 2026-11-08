@@ -23,6 +23,11 @@ TEXAS_HOMES = _f("RIPPLE_RESIDENTIAL_METERS", 10_000_000)   # same default as fr
 PEAKER_MW = _f("RIPPLE_PEAKER_MW", 100)                      # typical gas peaker unit
 STALE_MINUTES = 120                                          # forecast older than this -> health "stale"
 
+# /api/chat abuse limits (the public URL spends the owner's Gemini quota). Per uvicorn worker, in memory.
+CHAT_MAX_CHARS = int(_f("CHAT_MAX_CHARS", 500))              # longer question -> 422
+CHAT_PER_IP_PER_MIN = int(_f("CHAT_PER_IP_PER_MIN", 10))     # over -> 429
+CHAT_GEMINI_PER_MIN = int(_f("CHAT_GEMINI_PER_MIN", 60))     # all clients; over -> rule-based answer, no Gemini call
+
 # Background Tiger refresh (app/refresh.py): Jobs API poll interval; 0 disables. Gold (SQL warehouse) check cadence.
 AUTO_SYNC_MINUTES = _f("AUTO_SYNC_MINUTES", 5)
 GOLD_CHECK_MINUTES = _f("GOLD_CHECK_MINUTES", 30)

@@ -61,7 +61,10 @@ TABLE = f"{catalog}.gold.forecasts"
 SPIKE_BOOST_PROB = 0.5
 SPIKE_BOOST = 15.0
 GREEN_MAX, YELLOW_MAX = 60.0, 85.0      # green < 60, yellow 60..85, red > 85 (contract §2.3)
-LOW_CONF_REL_WIDTH = 0.20
+LOW_CONF_REL_WIDTH = 0.50              # band wider than 50% of the value -> flag (0.20 flagged every hour)
+ANCHOR_HOURS = 6                       # demand anchor: mean Model D error over the last 6 actual hours ...
+ANCHOR_TAU_H = 12.0                    # ... applied with weight exp(-h / 12): ~92% at h=1, ~2% by h=48
+FIRST_HOUR_TOL_PCT, FIRST_HOUR_TOL_MW = 0.05, 2500.0
 SRC_ALT, SRC_A = "demand_minus_ercot_renewables", "model_a"
 
 # Feature lists are identical to 04_train (contract §3). The pyfunc wrappers select their own columns, so these are
@@ -152,6 +155,41 @@ res = pd.DataFrame({
     "wind_fcst_mw": fcst["wind_fcst_mw"].astype("float64").values,
     "solar_fcst_mw": fcst["solar_fcst_mw"].astype("float64").values,
 })
+# COMMAND ----------
+
+# MAGIC %md ## 2b · Demand anchor (recency correction)
+# MAGIC The lag-48 floor means Model D never sees the last 48 h of demand, so the start of the forecast can sit several GW
+# MAGIC away from what is happening right now (PM review: 49.7 GW forecast right after an observed, rising 53.1 GW).
+# MAGIC We score Model D on the last `ANCHOR_HOURS` **actual** hours, take its mean error (`demand_bias_mw`), and add
+# MAGIC `bias × exp(−h / ANCHOR_TAU_H)` to demand P10/P50/P90. The correction is strongest at h=1 and fades to ~0 by
+# MAGIC h=48, where the model's own seasonal and weather signal takes over. This is standard forecast "anchoring", and
+# MAGIC it uses only data known at `run_ts`.
+
+# COMMAND ----------
+
+from pyspark.sql import functions as F
+
+hist = (feat_sdf.where("NOT is_forecast_row").orderBy(F.col("ts_utc").desc()).limit(ANCHOR_HOURS)
+        .select("ts_utc", *FEATURES_D).toPandas())
+act = (spark.table(f"{catalog}.silver.grid_hourly").where("NOT is_forecast_row AND demand_mw IS NOT NULL")
+       .orderBy(F.col("ts_utc").desc()).limit(ANCHOR_HOURS * 2).select("ts_utc", "demand_mw").toPandas())
+hist["ts_utc"], act["ts_utc"] = pd.to_datetime(hist["ts_utc"]), pd.to_datetime(act["ts_utc"])
+hist = hist.merge(act, on="ts_utc", how="inner").sort_values("ts_utc")
+last_actual_demand = float(act.sort_values("ts_utc")["demand_mw"].iloc[-1])
+if len(hist) >= 3:
+    hist_pred = model_D.predict(to_X(hist, FEATURES_D))["demand_p50"].astype("float64").values
+    demand_bias = float(np.mean(hist["demand_mw"].values - hist_pred))
+else:
+    demand_bias = 0.0
+print(f"demand anchor: {len(hist)} recent actual hours, mean Model D error = {demand_bias:+,.0f} MW, "
+      f"latest actual demand = {last_actual_demand:,.0f} MW")
+
+res["demand_p50_raw"] = res["demand_p50"]
+res["demand_bias_mw"] = demand_bias
+res["demand_anchor_adj_mw"] = demand_bias * np.exp(-res["horizon_h"] / ANCHOR_TAU_H)
+for q in ("demand_p10", "demand_p50", "demand_p90"):
+    res[q] = res[q] + res["demand_anchor_adj_mw"]
+
 res["net_load_alt"] = res["demand_p50"] - res["wind_fcst_mw"] - res["solar_fcst_mw"]   # NaN if a forecast is missing
 has_ren = res["wind_fcst_mw"].notna() & res["solar_fcst_mw"].notna()
 res["strain_source"] = np.where(has_ren, SRC_ALT, SRC_A)
@@ -222,7 +260,8 @@ COLS = ["run_ts", "target_ts", "horizon_h", "net_load_p10", "net_load_p50", "net
         "wind_fcst_mw", "solar_fcst_mw", "net_load_alt", "net_load_used", "strain_source", "spike_prob",
         "spike_prob_model_a_input", "local_month", "strain_base", "strain_index", "level", "band_low", "band_high",
         "low_confidence", "model_a_version", "model_b_version", "model_d_version", "created_at",
-        "demand_p10", "demand_p90", "wind_fcst_p80_mw", "solar_fcst_p80_mw", "band_source"]
+        "demand_p10", "demand_p90", "wind_fcst_p80_mw", "solar_fcst_p80_mw", "band_source",
+        "demand_p50_raw", "demand_bias_mw", "demand_anchor_adj_mw"]
 res = res[COLS]
 display(res)
 print(res[["target_ts", "horizon_h", "net_load_p50", "demand_p50", "wind_fcst_mw", "solar_fcst_mw", "net_load_alt",
@@ -240,7 +279,8 @@ SCHEMA = """run_ts TIMESTAMP, target_ts TIMESTAMP, horizon_h INT, net_load_p10 D
   net_load_used DOUBLE, strain_source STRING, spike_prob DOUBLE, spike_prob_model_a_input DOUBLE, local_month INT,
   strain_base DOUBLE, strain_index DOUBLE, level STRING, band_low DOUBLE, band_high DOUBLE, low_confidence BOOLEAN,
   model_a_version STRING, model_b_version STRING, model_d_version STRING, created_at TIMESTAMP,
-  demand_p10 DOUBLE, demand_p90 DOUBLE, wind_fcst_p80_mw DOUBLE, solar_fcst_p80_mw DOUBLE, band_source STRING"""
+  demand_p10 DOUBLE, demand_p90 DOUBLE, wind_fcst_p80_mw DOUBLE, solar_fcst_p80_mw DOUBLE, band_source STRING,
+  demand_p50_raw DOUBLE, demand_bias_mw DOUBLE, demand_anchor_adj_mw DOUBLE"""
 spark.sql(f"CREATE TABLE IF NOT EXISTS {TABLE} ({SCHEMA}) USING DELTA "
           f"COMMENT 'GridWise 48 h forecasts, one batch per run_ts (= anchor_ts); written by ml/05_predict'")
 # Schema evolution for tables created by the first version of this notebook: add any new columns.
@@ -318,6 +358,13 @@ checks = {
                                                  f"'{run_ts_sql}'").first()["c"]), True),
 }
 checks["single_batch_per_run_ts"]["pass"] = checks["single_batch_per_run_ts"]["value"] == 48
+_h1 = float(back.sort_values("target_ts")["demand_p50"].iloc[0])
+_gap = abs(_h1 - last_actual_demand)
+checks["first_hour_near_actual"] = chk(
+    {"h1_demand": round(_h1), "last_actual": round(last_actual_demand), "gap_mw": round(_gap),
+     "bias_mw": round(demand_bias)},
+    _gap <= max(FIRST_HOUR_TOL_PCT * last_actual_demand, FIRST_HOUR_TOL_MW))
+checks["low_conf_not_all"] = chk(int(back["low_confidence"].sum()), int(back["low_confidence"].sum()) < 48)
 failed = [k for k, v in checks.items() if not v["pass"]]
 
 first = back.sort_values("target_ts").iloc[0]

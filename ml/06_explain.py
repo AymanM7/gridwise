@@ -29,7 +29,7 @@
 # MAGIC | `feature_value` | the input value for that hour (°F, MW, %, local hour, ...) |
 # MAGIC | `shap_mw` | signed contribution to `net_load_used`, MW, relative to `base_mw` |
 # MAGIC | `direction` | `'raises'` if `shap_mw > 0`, else `'lowers'` |
-# MAGIC | `driver_source` | `model_d_shap`, `model_a_shap` or `ercot_forecast` |
+# MAGIC | `driver_source` | `model_d_shap`, `model_a_shap`, `ercot_forecast` or `demand_anchor` |
 # MAGIC | `strain_source`, `model_name`, `model_version`, `base_mw`, `net_load_used`, `created_at` | lineage |
 # MAGIC
 # MAGIC SHAP is computed with `shap.TreeExplainer` and cross-checked against LightGBM's native TreeSHAP
@@ -133,9 +133,10 @@ LABELS = {
     "demand_roll168_max_l48": "Demand, 7-day peak (2+ days ago)",
     "ercot_wind_forecast": "ERCOT wind forecast",
     "ercot_solar_forecast": "ERCOT solar forecast",
+    "recent_demand_level": "Recent demand level (last 6 h vs model)",
 }
 grouped_members = {c for m, _ in GROUPS.values() for c in m}
-_all_drivers = set(GROUPS) | set(ERCOT_PSEUDO) | (set(FEATURES_D) - grouped_members)
+_all_drivers = set(GROUPS) | set(ERCOT_PSEUDO) | {"recent_demand_level"} | (set(FEATURES_D) - grouped_members)
 assert _all_drivers <= set(LABELS), f"missing labels: {sorted(_all_drivers - set(LABELS))}"
 
 # COMMAND ----------
@@ -150,7 +151,8 @@ run_ts = pd.Timestamp(run_ts)
 run_ts_sql = run_ts.strftime("%Y-%m-%d %H:%M:%S")
 
 fc = spark.sql(f"""SELECT target_ts, horizon_h, strain_source, net_load_used, net_load_p50, demand_p50,
-                          wind_fcst_mw, solar_fcst_mw, model_a_version, model_d_version
+                          wind_fcst_mw, solar_fcst_mw, model_a_version, model_d_version,
+                          coalesce(demand_anchor_adj_mw, 0D) AS demand_anchor_adj_mw
                    FROM {FCST} WHERE run_ts = TIMESTAMP '{run_ts_sql}'""").toPandas()
 fc["target_ts"] = pd.to_datetime(fc["target_ts"])
 fc = fc.sort_values("target_ts").reset_index(drop=True)
@@ -256,8 +258,11 @@ for i, r in fc.iterrows():
         for pseudo, col in ERCOT_PSEUDO.items():
             mean = mean_wind if col == "wind_fcst_mw" else mean_solar
             c[pseudo] = (float(r[col]), -(float(r[col]) - mean))
+        # 05_predict recency anchor: shifts demand toward the last 6 actual hours, fading with horizon
+        c["recent_demand_level"] = (float(r["demand_anchor_adj_mw"]), float(r["demand_anchor_adj_mw"]))
         base = ev_D - mean_wind - mean_solar
-        src_of = lambda d: "ercot_forecast" if d in ERCOT_PSEUDO else "model_d_shap"
+        src_of = lambda d: ("ercot_forecast" if d in ERCOT_PSEUDO else
+                            "demand_anchor" if d == "recent_demand_level" else "model_d_shap")
         model_name, model_version = NAME_D, ver_D
     else:
         c = contributions(sv_A[i], X_A.iloc[i], FEATURES_A)

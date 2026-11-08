@@ -1,0 +1,60 @@
+{
+  "date_local": "2026-11-08",
+  "generated_by": "rules",
+  "headline": "Tight grid ahead: 19 red hours. Strain peaks Sat 5 pm \u00b7 71% spike risk Sun 5 pm",
+  "tips": [
+    {
+      "icon": "snowflake",
+      "text": "Pre-cool your home before 3 pm, then let the thermostat drift up a few degrees until 1 am.",
+      "window": "3 pm \u2013 1 am"
+    },
+    {
+      "icon": "shirt",
+      "text": "Run laundry and the dishwasher during 10 am \u2013 2 pm.",
+      "window": "10 am \u2013 2 pm"
+    },
+    {
+      "icon": "car",
+      "text": "Charge the EV during 1 am \u2013 5 am, when strain is lowest.",
+      "window": "1 am \u2013 5 am"
+    },
+    {
+      "icon": "plug",
+      "text": "Unplug or delay non-essential loads during red hours.",
+      "window": "3 pm \u2013 1 am"
+    }
+  ],
+  "best_hours": [
+    "2026-11-08T11:00:00-06:00",
+    "2026-11-08T12:00:00-06:00",
+    "2026-11-08T10:00:00-06:00",
+    "2026-11-09T11:00:00-06:00",
+    "2026-11-09T12:00:00-06:00",
+    "2026-11-08T13:00:00-06:00"
+  ],
+  "avoid_hours": [
+    "2026-11-07T15:00:00-06:00",
+    "2026-11-07T16:00:00-06:00",
+    "2026-11-07T17:00:00-06:00",
+    "2026-11-07T18:00:00-06:00",
+    "2026-11-07T19:00:00-06:00",
+    "2026-11-07T20:00:00-06:00",
+    "2026-11-07T21:00:00-06:00",
+    "2026-11-07T22:00:00-06:00",
+    "2026-11-07T23:00:00-06:00",
+    "2026-11-08T00:00:00-06:00",
+    "2026-11-08T16:00:00-06:00",
+    "2026-11-08T17:00:00-06:00",
+    "2026-11-08T18:00:00-06:00",
+    "2026-11-08T19:00:00-06:00",
+    "2026-11-08T20:00:00-06:00",
+    "2026-11-08T21:00:00-06:00",
+    "2026-11-08T22:00:00-06:00",
+    "2026-11-09T06:00:00-06:00",
+    "2026-11-09T07:00:00-06:00"
+  ],
+  "why_red": {
+    "2026-11-07T22:00:00Z": "4 pm is red because low wind (4.5 GW) and solar fading leave a big gap for gas plants to fill, putting net load near the top of its range for this month, with a 68% chance of a price spike.",
+    "2026-11-08T23:00:00Z": "5 pm is red because low wind (4.5 GW) and solar fading leave a big gap for gas plants to fill, putting net load near the top of its range for this month, with a 71% chance of a price spike."
+  }
+}

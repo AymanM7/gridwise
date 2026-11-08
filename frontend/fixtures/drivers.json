@@ -1,0 +1,101 @@
+{
+  "2026-11-07T22:00:00Z": {
+    "target_ts": "2026-11-07T22:00:00Z",
+    "local_time": "2026-11-07T16:00:00-06:00",
+    "level": "red",
+    "strain_index": 100.0,
+    "drivers": [
+      {
+        "rank": 1,
+        "feature": "ercot_wind_forecast",
+        "label": "ERCOT wind forecast",
+        "value": 4458.1,
+        "mw": 8576.0,
+        "direction": "raises"
+      },
+      {
+        "rank": 2,
+        "feature": "ercot_solar_forecast",
+        "label": "ERCOT solar forecast",
+        "value": 2982.9,
+        "mw": 3268.0,
+        "direction": "raises"
+      },
+      {
+        "rank": 3,
+        "feature": "recent_demand_level",
+        "label": "Recent demand level (last 6 h vs model)",
+        "value": 2458.7,
+        "mw": 2459.0,
+        "direction": "raises"
+      }
+    ],
+    "why_red": "4 pm is red because low wind (4.5 GW) and solar fading leave a big gap for gas plants to fill, putting net load near the top of its range for this month, with a 68% chance of a price spike."
+  },
+  "2026-11-08T23:00:00Z": {
+    "target_ts": "2026-11-08T23:00:00Z",
+    "local_time": "2026-11-08T17:00:00-06:00",
+    "level": "red",
+    "strain_index": 100.0,
+    "drivers": [
+      {
+        "rank": 1,
+        "feature": "ercot_wind_forecast",
+        "label": "ERCOT wind forecast",
+        "value": 4500.6,
+        "mw": 8533.0,
+        "direction": "raises"
+      },
+      {
+        "rank": 2,
+        "feature": "ercot_solar_forecast",
+        "label": "ERCOT solar forecast",
+        "value": 594.0,
+        "mw": 5657.0,
+        "direction": "raises"
+      },
+      {
+        "rank": 3,
+        "feature": "cdd",
+        "label": "Cooling degrees (above 65\u00b0F)",
+        "value": 1.2,
+        "mw": -2376.0,
+        "direction": "lowers"
+      }
+    ],
+    "why_red": "5 pm is red because low wind (4.5 GW) and solar fading leave a big gap for gas plants to fill, putting net load near the top of its range for this month, with a 71% chance of a price spike."
+  },
+  "2026-11-08T17:00:00Z": {
+    "target_ts": "2026-11-08T17:00:00Z",
+    "local_time": "2026-11-08T11:00:00-06:00",
+    "level": "green",
+    "strain_index": 49.6,
+    "drivers": [
+      {
+        "rank": 1,
+        "feature": "ercot_wind_forecast",
+        "label": "ERCOT wind forecast",
+        "value": 4249.1,
+        "mw": 8785.0,
+        "direction": "raises"
+      },
+      {
+        "rank": 2,
+        "feature": "ercot_solar_forecast",
+        "label": "ERCOT solar forecast",
+        "value": 14609.8,
+        "mw": -8359.0,
+        "direction": "lowers"
+      },
+      {
+        "rank": 3,
+        "feature": "cdd",
+        "label": "Cooling degrees (above 65\u00b0F)",
+        "value": 0.0,
+        "mw": -2303.0,
+        "direction": "lowers"
+      }
+    ],
+    "why_red": null
+  }
+}

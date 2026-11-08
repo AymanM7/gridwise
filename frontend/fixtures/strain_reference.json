@@ -1,0 +1,507 @@
+[
+  {
+    "month": 11,
+    "pct": 0.0,
+    "net_load_mw": 9812.0
+  },
+  {
+    "month": 11,
+    "pct": 1.0,
+    "net_load_mw": 12054.5
+  },
+  {
+    "month": 11,
+    "pct": 2.0,
+    "net_load_mw": 13652.7
+  },
+  {
+    "month": 11,
+    "pct": 3.0,
+    "net_load_mw": 14912.4
+  },
+  {
+    "month": 11,
+    "pct": 4.0,
+    "net_load_mw": 16083.2
+  },
+  {
+    "month": 11,
+    "pct": 5.0,
+    "net_load_mw": 16691.0
+  },
+  {
+    "month": 11,
+    "pct": 6.0,
+    "net_load_mw": 17271.3
+  },
+  {
+    "month": 11,
+    "pct": 7.0,
+    "net_load_mw": 17819.9
+  },
+  {
+    "month": 11,
+    "pct": 8.0,
+    "net_load_mw": 18249.8
+  },
+  {
+    "month": 11,
+    "pct": 9.0,
+    "net_load_mw": 18547.1
+  },
+  {
+    "month": 11,
+    "pct": 10.0,
+    "net_load_mw": 18838.1
+  },
+  {
+    "month": 11,
+    "pct": 11.0,
+    "net_load_mw": 19163.1
+  },
+  {
+    "month": 11,
+    "pct": 12.0,
+    "net_load_mw": 19448.0
+  },
+  {
+    "month": 11,
+    "pct": 13.0,
+    "net_load_mw": 19772.3
+  },
+  {
+    "month": 11,
+    "pct": 14.0,
+    "net_load_mw": 20075.6
+  },
+  {
+    "month": 11,
+    "pct": 15.0,
+    "net_load_mw": 20360.0
+  },
+  {
+    "month": 11,
+    "pct": 16.0,
+    "net_load_mw": 20741.7
+  },
+  {
+    "month": 11,
+    "pct": 17.0,
+    "net_load_mw": 20986.3
+  },
+  {
+    "month": 11,
+    "pct": 18.0,
+    "net_load_mw": 21346.3
+  },
+  {
+    "month": 11,
+    "pct": 19.0,
+    "net_load_mw": 21578.3
+  },
+  {
+    "month": 11,
+    "pct": 20.0,
+    "net_load_mw": 21837.6
+  },
+  {
+    "month": 11,
+    "pct": 21.0,
+    "net_load_mw": 22049.0
+  },
+  {
+    "month": 11,
+    "pct": 22.0,
+    "net_load_mw": 22264.0
+  },
+  {
+    "month": 11,
+    "pct": 23.0,
+    "net_load_mw": 22499.7
+  },
+  {
+    "month": 11,
+    "pct": 24.0,
+    "net_load_mw": 22762.8
+  },
+  {
+    "month": 11,
+    "pct": 25.0,
+    "net_load_mw": 22940.0
+  },
+  {
+    "month": 11,
+    "pct": 26.0,
+    "net_load_mw": 23151.9
+  },
+  {
+    "month": 11,
+    "pct": 27.0,
+    "net_load_mw": 23326.0
+  },
+  {
+    "month": 11,
+    "pct": 28.0,
+    "net_load_mw": 23499.3
+  },
+  {
+    "month": 11,
+    "pct": 29.0,
+    "net_load_mw": 23749.7
+  },
+  {
+    "month": 11,
+    "pct": 30.0,
+    "net_load_mw": 23986.0
+  },
+  {
+    "month": 11,
+    "pct": 31.0,
+    "net_load_mw": 24240.3
+  },
+  {
+    "month": 11,
+    "pct": 32.0,
+    "net_load_mw": 24392.8
+  },
+  {
+    "month": 11,
+    "pct": 33.0,
+    "net_load_mw": 24788.2
+  },
+  {
+    "month": 11,
+    "pct": 34.0,
+    "net_load_mw": 25060.4
+  },
+  {
+    "month": 11,
+    "pct": 35.0,
+    "net_load_mw": 25257.9
+  },
+  {
+    "month": 11,
+    "pct": 36.0,
+    "net_load_mw": 25475.4
+  },
+  {
+    "month": 11,
+    "pct": 37.0,
+    "net_load_mw": 25717.8
+  },
+  {
+    "month": 11,
+    "pct": 38.0,
+    "net_load_mw": 26011.9
+  },
+  {
+    "month": 11,
+    "pct": 39.0,
+    "net_load_mw": 26265.9
+  },
+  {
+    "month": 11,
+    "pct": 40.0,
+    "net_load_mw": 26435.2
+  },
+  {
+    "month": 11,
+    "pct": 41.0,
+    "net_load_mw": 26736.0
+  },
+  {
+    "month": 11,
+    "pct": 42.0,
+    "net_load_mw": 26988.8
+  },
+  {
+    "month": 11,
+    "pct": 43.0,
+    "net_load_mw": 27179.3
+  },
+  {
+    "month": 11,
+    "pct": 44.0,
+    "net_load_mw": 27411.0
+  },
+  {
+    "month": 11,
+    "pct": 45.0,
+    "net_load_mw": 27618.6
+  },
+  {
+    "month": 11,
+    "pct": 46.0,
+    "net_load_mw": 27895.8
+  },
+  {
+    "month": 11,
+    "pct": 47.0,
+    "net_load_mw": 28144.6
+  },
+  {
+    "month": 11,
+    "pct": 48.0,
+    "net_load_mw": 28435.2
+  },
+  {
+    "month": 11,
+    "pct": 49.0,
+    "net_load_mw": 28634.8
+  },
+  {
+    "month": 11,
+    "pct": 50.0,
+    "net_load_mw": 29014.0
+  },
+  {
+    "month": 11,
+    "pct": 51.0,
+    "net_load_mw": 29311.1
+  },
+  {
+    "month": 11,
+    "pct": 52.0,
+    "net_load_mw": 29626.0
+  },
+  {
+    "month": 11,
+    "pct": 53.0,
+    "net_load_mw": 29921.9
+  },
+  {
+    "month": 11,
+    "pct": 54.0,
+    "net_load_mw": 30187.0
+  },
+  {
+    "month": 11,
+    "pct": 55.0,
+    "net_load_mw": 30355.8
+  },
+  {
+    "month": 11,
+    "pct": 56.0,
+    "net_load_mw": 30658.2
+  },
+  {
+    "month": 11,
+    "pct": 57.0,
+    "net_load_mw": 30943.9
+  },
+  {
+    "month": 11,
+    "pct": 58.0,
+    "net_load_mw": 31193.1
+  },
+  {
+    "month": 11,
+    "pct": 59.0,
+    "net_load_mw": 31543.3
+  },
+  {
+    "month": 11,
+    "pct": 60.0,
+    "net_load_mw": 31851.4
+  },
+  {
+    "month": 11,
+    "pct": 61.0,
+    "net_load_mw": 32263.0
+  },
+  {
+    "month": 11,
+    "pct": 62.0,
+    "net_load_mw": 32429.1
+  },
+  {
+    "month": 11,
+    "pct": 63.0,
+    "net_load_mw": 32632.7
+  },
+  {
+    "month": 11,
+    "pct": 64.0,
+    "net_load_mw": 32845.3
+  },
+  {
+    "month": 11,
+    "pct": 65.0,
+    "net_load_mw": 33074.5
+  },
+  {
+    "month": 11,
+    "pct": 66.0,
+    "net_load_mw": 33324.8
+  },
+  {
+    "month": 11,
+    "pct": 67.0,
+    "net_load_mw": 33554.1
+  },
+  {
+    "month": 11,
+    "pct": 68.0,
+    "net_load_mw": 33748.9
+  },
+  {
+    "month": 11,
+    "pct": 69.0,
+    "net_load_mw": 33961.0
+  },
+  {
+    "month": 11,
+    "pct": 70.0,
+    "net_load_mw": 34207.9
+  },
+  {
+    "month": 11,
+    "pct": 71.0,
+    "net_load_mw": 34426.0
+  },
+  {
+    "month": 11,
+    "pct": 72.0,
+    "net_load_mw": 34705.4
+  },
+  {
+    "month": 11,
+    "pct": 73.0,
+    "net_load_mw": 34997.9
+  },
+  {
+    "month": 11,
+    "pct": 74.0,
+    "net_load_mw": 35317.2
+  },
+  {
+    "month": 11,
+    "pct": 75.0,
+    "net_load_mw": 35634.0
+  },
+  {
+    "month": 11,
+    "pct": 76.0,
+    "net_load_mw": 35928.4
+  },
+  {
+    "month": 11,
+    "pct": 77.0,
+    "net_load_mw": 36180.8
+  },
+  {
+    "month": 11,
+    "pct": 78.0,
+    "net_load_mw": 36430.9
+  },
+  {
+    "month": 11,
+    "pct": 79.0,
+    "net_load_mw": 36777.3
+  },
+  {
+    "month": 11,
+    "pct": 80.0,
+    "net_load_mw": 37144.0
+  },
+  {
+    "month": 11,
+    "pct": 81.0,
+    "net_load_mw": 37448.1
+  },
+  {
+    "month": 11,
+    "pct": 82.0,
+    "net_load_mw": 37733.1
+  },
+  {
+    "month": 11,
+    "pct": 83.0,
+    "net_load_mw": 38112.1
+  },
+  {
+    "month": 11,
+    "pct": 84.0,
+    "net_load_mw": 38494.6
+  },
+  {
+    "month": 11,
+    "pct": 85.0,
+    "net_load_mw": 38880.8
+  },
+  {
+    "month": 11,
+    "pct": 86.0,
+    "net_load_mw": 39222.1
+  },
+  {
+    "month": 11,
+    "pct": 87.0,
+    "net_load_mw": 39529.7
+  },
+  {
+    "month": 11,
+    "pct": 88.0,
+    "net_load_mw": 39926.4
+  },
+  {
+    "month": 11,
+    "pct": 89.0,
+    "net_load_mw": 40296.9
+  },
+  {
+    "month": 11,
+    "pct": 90.0,
+    "net_load_mw": 40562.4
+  },
+  {
+    "month": 11,
+    "pct": 91.0,
+    "net_load_mw": 41106.4
+  },
+  {
+    "month": 11,
+    "pct": 92.0,
+    "net_load_mw": 41686.5
+  },
+  {
+    "month": 11,
+    "pct": 93.0,
+    "net_load_mw": 42168.4
+  },
+  {
+    "month": 11,
+    "pct": 94.0,
+    "net_load_mw": 42930.6
+  },
+  {
+    "month": 11,
+    "pct": 95.0,
+    "net_load_mw": 43482.0
+  },
+  {
+    "month": 11,
+    "pct": 96.0,
+    "net_load_mw": 44319.4
+  },
+  {
+    "month": 11,
+    "pct": 97.0,
+    "net_load_mw": 45372.2
+  },
+  {
+    "month": 11,
+    "pct": 98.0,
+    "net_load_mw": 46373.4
+  },
+  {
+    "month": 11,
+    "pct": 99.0,
+    "net_load_mw": 48067.2
+  },
+  {
+    "month": 11,
+    "pct": 100.0,
+    "net_load_mw": 53709.0
+  }
+]

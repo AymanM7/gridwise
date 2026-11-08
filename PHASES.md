@@ -137,59 +137,60 @@ Tick boxes as you go. Each phase ends with a ✅ checkpoint you can show a judge
 ## Phase 4: AI Layer & Automation (1.5 h)
 
 ### 4.1 Gemini daily advice
-- [ ] If 1.4 showed external models are allowed: AI Gateway + `ai_query()` in SQL → `gold.daily_advice`
-- [ ] Otherwise: the worker's `publish` step reads `gold.forecasts` via the SQL warehouse, calls Gemini, and writes `gold.daily_advice` back
+- [ ] ~~If 1.4 showed external models are allowed: AI Gateway + `ai_query()` in SQL → `gold.daily_advice`~~ *(not used: Gemini is called from a notebook task instead)*
+- [x] Gemini → `gold.daily_advice` *(deviation: done inside Databricks by `ml/09_advice.py` (Gemini REST, key from secret scope `gridwise`), with a deterministic **rules** fallback. Verified Nov 7: a local harness run called Gemini for real (`generated_by=gemini`, all checks pass); the Databricks run on 22Z wrote the row for 2026-11-08 with `generated_by=rules` because the secret scope doesn't exist yet. Open: human runs `python -m tools.setup_secrets`; the free-tier key also hit HTTP 429)*
 
 ### 4.2 "Why Red?" sentences
-- [ ] Gemini turns each red hour's SHAP drivers into one plain sentence
+- [x] Gemini turns each red hour's SHAP drivers into one plain sentence *(`09_advice` writes `why_red` per red hour (18/18 covered in the Gemini test); rules sentences are used when Gemini is off. The API's `/api/forecast/drivers` also returns a plain-English `why_red`)*
 
 ### 4.3 Ripple scenarios
-- [ ] Precompute the participation × kWh × window grid → `gold.shift_scenarios`
+- [x] Precompute the participation × kWh × window grid → `gold.shift_scenarios` *(`ml/08_ripple.py`: 210 scenarios + 10,080 curve rows per run, re-scored by Models A/B. Hard checks: energy conserved (error 0), unshifted re-score equals `gold.forecasts` exactly. Afternoon runs now shift the rest of tonight's window too. Demo (5 %, 3 kWh, 4–8 pm → 10 pm–2 am): −338 MW; UI default (15 %, 5 kWh, 5–9 pm → 10 am–2 pm): −1,688 MW ≈ 17 peakers; best: −1,833 MW. Caveat: Model B barely reacts, so the UI leads with peak cut and peakers)*
 
 ### 4.4 Genie space
-- [ ] Create a Genie space over the Gold tables, add table descriptions + sample SQL
-- [ ] Test the 5 demo questions in `PROJECT_SCOPE.md`
+- [x] Create a Genie space over the Gold tables, add table descriptions + sample SQL *(space "GridWise - Texas Grid" over 6 gold tables + `silver.grid_hourly`; 77 table/column COMMENTs, re-applied by the Job's last task; `python -m tools.job genie`; see `docs/GENIE.md`)*
+- [x] Test the 5 demo questions in `PROJECT_SCOPE.md` *(all 5 asked through the API and matched our own SQL; a time-zone instruction was added after Q1 first answered in the wrong zone)*
 
 ### 4.5 Databricks Job
-- [ ] Job `gridwise-hourly`: bronze → silver → gold → predict → explain → ripple → report card (serverless)
-- [ ] Copy the Job ID into `.env` and GitHub secrets as `DATABRICKS_JOB_ID`
+- [~] Job `gridwise-hourly`: bronze → silver → gold → predict → explain → ripple → advice → report card → genie_comments (serverless, pinned to environment v2 / Python 3.11 to match the pickled models) *(job 128080440835123 created by `python -m tools.job create`. Last recorded run: bronze/silver/gold/predict/explain/report_card/genie_comments SUCCESS, ripple FAILED (a time-of-day assert, since fixed and passing in standalone runs), advice UPSTREAM_FAILED. **Open: one full `python -m tools.job run` with all 9 tasks green**)*
+- [~] Copy the Job ID into `.env` and GitHub secrets as `DATABRICKS_JOB_ID` *(`.env` done; GitHub repo secret is for the human)*
 
 ### 4.6 End-to-end automation
-- [ ] Add repo secrets and enable `.github/workflows/gridwise-hourly.yml`: ingest → upload → run Job, every hour
+- [ ] Add repo secrets and enable `.github/workflows/gridwise-hourly.yml`: ingest → upload → run Job, every hour *(workflow updated (deploy → ingest → Job → `tools.job last`); manual `workflow_dispatch` only, the cron is commented out because silver alone uses ~12 min of the Free Edition daily quota. Repo secrets not added yet)*
 - [ ] Watch two consecutive runs succeed
+- [x] Hourly unit works by command: `python -m ingestion.cli ingest --trigger-job` *(one end-to-end run on Nov 7 landed all 6 sources and ran the Job)*
 
-**✅ Checkpoint 4:** the whole pipeline runs every hour with no manual steps.
+**⚠️ Checkpoint 4 (partial):** the whole pipeline runs from **one command** with no manual steps in between, and the API re-syncs Tiger by itself after each Job run. Not yet: a fully green Job run, and an hourly schedule (held back by the Free Edition compute quota).
 
 ---
 
 ## Phase 5: Serving & Dashboard (4 h, start 5.4 during Phase 3)
 
 ### 5.1 Tiger Data schema
-- [ ] Hypertables `forecasts`, `actuals`, plus continuous aggregates for hourly/daily rollups (`infra/schema.sql`)
+- [x] Hypertables `forecasts`, `actuals`, plus continuous aggregates for hourly/daily rollups *(`db/schema.sql` (not `infra/`): hypertables `forecasts` and `actuals` + `actuals_daily` continuous aggregate with refresh policy, plus drivers, report_card, shift_scenarios (+ curve), daily_advice, sync_log. Live on Tiger (Postgres 18 + TimescaleDB 2.31))*
 
 ### 5.2 Sync Gold → Tiger
-- [ ] Worker `publish` step (or a Databricks task if 1.4 showed Tiger is reachable)
+- [x] Worker `publish` step *(`python -m db.sync` (SQL warehouse → Tiger; `--if-newer`, `--skip-actuals`). Tiger holds 9,598 actuals, 96 forecasts, 288 drivers, 92 report-card rows, 210 scenarios / 10,080 curve rows. `backend/app/refresh.py` polls the Jobs API every 5 min (no compute) and re-syncs after each Job run. Tiger's shift_scenarios is one sync behind gold until the next Job run)*
 
 ### 5.3 FastAPI
-- [ ] `/forecast`, `/forecast/drivers`, `/advice`, `/history`, `/simulate`, `/report-card`, `/chat`
+- [x] `/forecast`, `/forecast/drivers`, `/advice`, `/history`, `/simulate`, `/report-card`, `/chat` *(+ `/api/health`; all 8 return 200 and match the contract keys (PM check, Nov 7). Forecast band re-expressed in net-load space and brackets net load in 48/48 hours. Health age is measured from when the batch was produced (`created_at`): 28 min)*
 
 ### 5.4 Dashboard core
-- [ ] 48 h strain timeline with P10–P90 band, spike risk chart, best-hours card, Gemini advice panel
+- [x] 48 h strain timeline with P10–P90 band, spike risk chart, best-hours card, Gemini advice panel *(Next.js 15 in `frontend/`; hero verdict ("18 red hours, peaks Sat 6 pm, 71 % spike risk"), colour-coded timeline, best/avoid windows; advice panel says honestly when it is rules-based. Lint + build clean; 390 px mobile layout checked)*
 
 ### 5.5 Ripple panel
-- [ ] Sliders → before/after curve, Δ peak MW, Δ spike probability, Δ red hours
+- [x] Sliders → before/after curve, Δ peak MW, Δ spike probability, Δ red hours *(sliders snap to the precomputed grid, so live results are exact; headline tiles show peak cut (GW) and gas peakers avoided; spike/red-hour changes appear on a secondary line only when they change)*
 
 ### 5.6 Why Red? + report card
-- [ ] Hover tooltips on red hours; yesterday's accuracy widget
+- [x] Hover tooltips on red hours; yesterday's accuracy widget *("Why this color?" panel with ranked drivers in GW and a plain sentence; report card shows backtest MAPE / band coverage / spike recall and labels backtest vs live)*
 
 ### 5.7 Chat box
-- [ ] "When should I charge my EV?" answered by Gemini using the live forecast
+- [x] "When should I charge my EV?" answered by Gemini using the live forecast *(`POST /api/chat` uses Gemini with the live forecast as context and returns `highlight_hours`. Verified: a clean fallback to the rules answer. Currently rules-only because the Gemini key returned HTTP 429 (quota); re-check `generated_by` before the demo)*
 
 ### 5.8 Deploy
-- [ ] Vultr VM + Docker Compose + Caddy (HTTPS); GoDaddy A record → Vultr IP
+- [ ] Vultr VM + Docker Compose + Caddy (HTTPS); GoDaddy A record → Vultr IP *(`backend/Dockerfile` exists; the container needs `DATABRICKS_HOST/TOKEN/WAREHOUSE_ID/JOB_ID` + `TIGER_DATABASE_URL` + `GEMINI_API_KEY` in its env)*
 - [ ] Move the hourly worker to a Vultr cron (optional; GitHub Actions is fine)
 
-**✅ Checkpoint 5:** live at `https://gridwise.tech`.
+**⚠️ Checkpoint 5 (local only):** the full dashboard runs locally against live Tiger data (API on :8000, Next.js on :3000). Not yet live at `https://gridwise.tech` (5.8).
 
 ---
 

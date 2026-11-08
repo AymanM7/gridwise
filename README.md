@@ -67,10 +67,10 @@ ERCOT reports in Central time. Every November, the 1:00 am hour happens **twice*
 | Phase | Status |
 |---|---|
 | 1. Setup & ingestion → Bronze | ✅ Done: 2023 → today loaded (EIA 33.9k hours, prices 134.6k rows, weather 134.5k rows) |
-| 2. Silver & Gold | 🔄 In progress: Silver built, Gold building |
-| 3. Machine learning | 🔄 Training notebook drafted |
-| 4. AI layer & automation | ⏳ |
-| 5. Serving & dashboard | ⏳ |
+| 2. Silver & Gold | ✅ Done: `gold.features` has one clean row per hour (33.8k rows), plus strain index and spike events; DST-safe |
+| 3. Machine learning | ✅ Done: demand **3.45 % test MAPE**, net load 11.8 % (36 % better than baseline), P10–P90 coverage 80.7 %, spike recall 0.81; SHAP drivers; daily report card |
+| 4. AI layer & automation | 🟡 Mostly done: Gemini advice + "Why Red?" (rules fallback live until the `gridwise` secret scope exists), Ripple grid (210 scenarios), Genie space (5 demo questions verified), 9-task Job. Open: one all-green Job run; hourly schedule held back by the Free Edition quota |
+| 5. Serving & dashboard | 🟡 Runs locally: Tiger Data sync, FastAPI (8 endpoints), Next.js dashboard (timeline, Why Red?, advice, Ripple, report card, chat). Open: Vultr + GoDaddy deploy |
 | 6. Ship | ⏳ |
 
 The step-by-step plan is in [PHASES.md](PHASES.md); the scope and success criteria are in [PROJECT_SCOPE.md](PROJECT_SCOPE.md).
@@ -98,6 +98,52 @@ python -m tools.sql "SELECT count(*) FROM grid.bronze.eia_hourly"
 
 Add `--local-only` to any `ingestion.cli` command to test without Databricks (it writes to `data/landing/`).
 
+### Pipeline, ML and the Databricks Job
+
+```powershell
+python -m tools.deploy --run 02_silver 03_gold 04_train 05_predict 06_explain 08_ripple 09_advice 07_report_card
+python -m tools.setup_secrets              # one time: puts GEMINI_API_KEY in Databricks secret scope 'gridwise'
+python -m tools.setup_secrets --check
+python -m tools.job create                 # creates/updates job 'gridwise-hourly', saves DATABRICKS_JOB_ID to .env
+python -m tools.job run                    # runs all 9 tasks and prints each task's status
+python -m tools.job last                   # status of the latest run (no compute)
+python -m tools.job genie                  # creates/updates the Genie space (see docs/GENIE.md)
+python -m ingestion.cli ingest --trigger-job   # the hourly unit: fetch → upload → run the Job
+```
+
+### Serving: Tiger Data, API, dashboard
+
+Needs `TIGER_DATABASE_URL` in `.env` (Tiger Data / TimescaleDB) and Node 22.
+
+```powershell
+pip install -r backend/requirements.txt
+python -m db.sync                          # applies db/schema.sql, copies Gold → Tiger (--if-newer, --skip-actuals)
+
+# Terminal 1: API on http://localhost:8000 (docs at /docs); re-syncs Tiger after each Job run
+python -m uvicorn backend.app.main:app --port 8000
+
+# Terminal 2: dashboard on http://localhost:3000
+cd frontend
+npm install
+npm run dev                                # live API (NEXT_PUBLIC_API_BASE_URL, default http://localhost:8000)
+# npm run dev:fixtures                     # demo mode with bundled data, no backend needed
+# npm run build && npm run start           # production build (no dev badge)
+```
+
+### Demo-morning refresh (one line)
+
+Fresh data end to end (ingest -> Databricks Job -> Tiger), from the repo root:
+
+```bash
+PYTHONIOENCODING=utf-8 .venv/Scripts/python -m ingestion.cli ingest --trigger-job && PYTHONIOENCODING=utf-8 .venv/Scripts/python -m db.sync
+```
+
+The Job takes ~10-15 min of the Free Edition daily quota. If the API is running, the `db.sync` half is
+automatic: the API's background refresher (`backend/app/refresh.py`) polls the Jobs API every 5 min (no compute)
+and re-syncs Tiger as soon as a Job run finishes. `python -m db.sync --if-newer` does the same check by hand.
+The dashboard's "pipeline may be delayed" banner appears only when the newest forecast batch was *produced*
+more than 2 h ago (`gold.forecasts.created_at`), not from the data anchor hour, which always trails ERCOT/EIA by ~3 h.
+
 ### Why there's a "worker"
 
 Databricks Free Edition restricts outbound internet from notebooks, so a small worker fetches data outside Databricks and uploads it **into** a Unity Catalog Volume, which is always allowed. Everything else (transforms, ML, Gemini, Genie, the hourly Job) runs in Databricks.
@@ -109,12 +155,12 @@ gridwise/
 ├── ingestion/        📥 DATA INGESTION: fetch ERCOT · EIA · Open-Meteo, upload into Databricks
 │   └── sources/        ercot.py · eia.py · weather.py
 ├── pipeline/         🏗️ DATABRICKS PIPELINE: 00_setup → 01_bronze → 02_silver → 03_gold
-├── ml/               🤖 MACHINE LEARNING: 04_train · 05_predict · 06_explain · 07_report_card
-├── db/               🗄️ SERVING DATABASE: Tiger Data schema + continuous aggregates  (Phase 5)
-├── backend/          🔌 API: FastAPI on Vultr                                       (Phase 5)
-├── frontend/         🖥️ DASHBOARD: Next.js at gridwise.tech                          (Phase 5)
+├── ml/               🤖 MACHINE LEARNING + AI: 04_train · 05_predict · 06_explain · 07_report_card · 08_ripple · 09_advice
+├── db/               🗄️ SERVING DATABASE: Tiger Data schema + Gold → Tiger sync (db.sync)
+├── backend/          🔌 API: FastAPI (8 endpoints) + Tiger auto-refresh
+├── frontend/         🖥️ DASHBOARD: Next.js 15 (target: gridwise.tech)
 ├── infra/            🚀 DEPLOYMENT: docker-compose · Caddy · Vultr                   (Phase 5)
-├── tools/            🧰 DEV HELPERS: login · deploy · sql · check_secrets
+├── tools/            🧰 DEV HELPERS: login · deploy · sql · job · setup_secrets · check_secrets
 ├── docs/             📚 architecture image · data contract · diagram generator
 ├── .github/workflows/  secret-scan (every push) · gridwise-hourly (pipeline trigger)
 └── .gitleaks.toml    secret-detection rules

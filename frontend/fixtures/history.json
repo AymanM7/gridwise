@@ -1,0 +1,244 @@
+{
+  "daily": [
+    {
+      "day": "2026-10-09",
+      "peak_net_load_mw": 60617.0,
+      "max_strain": 99.8,
+      "avg_price": 43.27,
+      "max_price": 94.52,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-10",
+      "peak_net_load_mw": 48273.0,
+      "max_strain": 92.0,
+      "avg_price": 19.96,
+      "max_price": 31.12,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-11",
+      "peak_net_load_mw": 44171.0,
+      "max_strain": 83.6,
+      "avg_price": 13.85,
+      "max_price": 29.27,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-12",
+      "peak_net_load_mw": 52816.0,
+      "max_strain": 96.5,
+      "avg_price": 29.63,
+      "max_price": 54.14,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-13",
+      "peak_net_load_mw": 54243.0,
+      "max_strain": 97.4,
+      "avg_price": 47.98,
+      "max_price": 86.76,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-14",
+      "peak_net_load_mw": 55940.0,
+      "max_strain": 98.5,
+      "avg_price": 50.22,
+      "max_price": 128.11,
+      "spike_hours": 2
+    },
+    {
+      "day": "2026-10-15",
+      "peak_net_load_mw": 47128.0,
+      "max_strain": 90.1,
+      "avg_price": 35.93,
+      "max_price": 50.77,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-16",
+      "peak_net_load_mw": 31759.0,
+      "max_strain": 42.6,
+      "avg_price": 15.06,
+      "max_price": 35.88,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-17",
+      "peak_net_load_mw": 46920.0,
+      "max_strain": 89.8,
+      "avg_price": 34.51,
+      "max_price": 71.49,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-18",
+      "peak_net_load_mw": 43464.0,
+      "max_strain": 81.8,
+      "avg_price": 24.63,
+      "max_price": 45.49,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-19",
+      "peak_net_load_mw": 45925.0,
+      "max_strain": 88.0,
+      "avg_price": 26.77,
+      "max_price": 48.07,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-20",
+      "peak_net_load_mw": 48184.0,
+      "max_strain": 91.7,
+      "avg_price": 26.56,
+      "max_price": 50.02,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-21",
+      "peak_net_load_mw": 53801.0,
+      "max_strain": 97.2,
+      "avg_price": 31.47,
+      "max_price": 63.56,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-22",
+      "peak_net_load_mw": 50211.0,
+      "max_strain": 94.3,
+      "avg_price": 29.86,
+      "max_price": 49.55,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-23",
+      "peak_net_load_mw": 39973.0,
+      "max_strain": 71.5,
+      "avg_price": 16.68,
+      "max_price": 26.85,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-24",
+      "peak_net_load_mw": 40693.0,
+      "max_strain": 73.9,
+      "avg_price": 18.41,
+      "max_price": 33.23,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-25",
+      "peak_net_load_mw": 40288.0,
+      "max_strain": 72.6,
+      "avg_price": 21.26,
+      "max_price": 30.06,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-26",
+      "peak_net_load_mw": 49888.0,
+      "max_strain": 93.9,
+      "avg_price": 40.77,
+      "max_price": 95.64,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-27",
+      "peak_net_load_mw": 46035.0,
+      "max_strain": 88.2,
+      "avg_price": 34.67,
+      "max_price": 51.68,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-28",
+      "peak_net_load_mw": 50259.0,
+      "max_strain": 94.4,
+      "avg_price": 30.32,
+      "max_price": 57.59,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-29",
+      "peak_net_load_mw": 43880.0,
+      "max_strain": 82.7,
+      "avg_price": 36.19,
+      "max_price": 46.64,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-30",
+      "peak_net_load_mw": 47493.0,
+      "max_strain": 90.7,
+      "avg_price": 34.86,
+      "max_price": 44.6,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-10-31",
+      "peak_net_load_mw": 53688.0,
+      "max_strain": 97.1,
+      "avg_price": 63.56,
+      "max_price": 133.33,
+      "spike_hours": 2
+    },
+    {
+      "day": "2026-11-01",
+      "peak_net_load_mw": 46408.0,
+      "max_strain": 98.0,
+      "avg_price": 34.9,
+      "max_price": 53.66,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-11-02",
+      "peak_net_load_mw": 42369.0,
+      "max_strain": 93.2,
+      "avg_price": 27.96,
+      "max_price": 78.98,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-11-03",
+      "peak_net_load_mw": 48017.0,
+      "max_strain": 99.0,
+      "avg_price": 54.39,
+      "max_price": 182.81,
+      "spike_hours": 4
+    },
+    {
+      "day": "2026-11-04",
+      "peak_net_load_mw": 48079.0,
+      "max_strain": 99.0,
+      "avg_price": 27.74,
+      "max_price": 50.03,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-11-05",
+      "peak_net_load_mw": 43415.4,
+      "max_strain": 95.0,
+      "avg_price": 25.83,
+      "max_price": 59.23,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-11-06",
+      "peak_net_load_mw": 50458.9,
+      "max_strain": 99.7,
+      "avg_price": 32.9,
+      "max_price": 66.57,
+      "spike_hours": 0
+    },
+    {
+      "day": "2026-11-07",
+      "peak_net_load_mw": 40778.8,
+      "max_strain": 90.3,
+      "avg_price": 34.92,
+      "max_price": 50.43,
+      "spike_hours": 0
+    }
+  ]
+}

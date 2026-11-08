@@ -1,22 +1,48 @@
-# Hourly pipeline trigger (Phase 4.6). Free Edition notebooks can't reach ERCOT/EIA/Open-Meteo,
-# so GitHub Actions fetches the data, uploads it to the UC Volume, then runs the Databricks Job.
-# Add these repo secrets: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_JOB_ID, EIA_API_KEY, GRIDWISE_CATALOG
+# Hourly pipeline trigger (Phase 4.6).
+# Free Edition notebooks can't reach ERCOT / EIA / Open-Meteo, so this runner fetches the data,
+# uploads it to the UC Volume (/Volumes/<catalog>/bronze/landing), then runs the Databricks Job
+# `gridwise-hourly` (created by `python -m tools.job create`):
+#   01_bronze -> 02_silver -> 03_gold -> 05_predict -> 06_explain -> {07_report_card, 08_ripple}
+#   -> 09_advice -> genie_comments
+#
+# Repo secrets (Settings -> Secrets and variables -> Actions):
+#   DATABRICKS_HOST     workspace URL, e.g. https://dbc-xxxxxxxx-xxxx.cloud.databricks.com   (required)
+#   DATABRICKS_TOKEN    personal access token (python -m tools.login creates one)              (required)
+#   DATABRICKS_JOB_ID   id printed by `python -m tools.job create` (also in your local .env)   (required)
+#   EIA_API_KEY         EIA open-data key (falls back to DEMO_KEY, which is heavily rate-limited)
+#   GRIDWISE_CATALOG    optional; defaults to "grid"
+# Gemini is NOT needed here: 09_advice reads it from the Databricks secret scope `gridwise`
+# (key gemini_api_key) and falls back to rule-based advice when the scope is missing.
+#
+# Free Edition has a daily serverless quota: one full job run costs ~10-15 min of compute, so an
+# hourly schedule can exhaust it. Keep the schedule off for the demo and trigger by hand
+# (Actions -> gridwise-hourly -> Run workflow) or locally:  python -m ingestion.cli ingest --trigger-job
 name: gridwise-hourly
 
 on:
-  # Schedule is OFF until the repo secrets below are added (Phase 4.6). Then uncomment:
+  # Schedule is OFF (Phase 4.6). To enable, add the secrets above and uncomment:
   # schedule:
-  #   - cron: "7 * * * *"   # every hour at :07 UTC
+  #   - cron: "7 * * * *"   # every hour at :07 UTC (ERCOT posts the previous hour by then)
   workflow_dispatch:
 
 concurrency:
   group: gridwise-hourly
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_JOB_ID: ${{ secrets.DATABRICKS_JOB_ID }}
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      GRIDWISE_CATALOG: ${{ secrets.GRIDWISE_CATALOG || 'grid' }}
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,11 +51,19 @@ jobs:
           cache: pip
           cache-dependency-path: ingestion/requirements.txt
       - run: pip install -r ingestion/requirements.txt
+
+      - name: Check secrets
+        run: |
+          for v in DATABRICKS_HOST DATABRICKS_TOKEN DATABRICKS_JOB_ID; do
+            if [ -z "${!v}" ]; then echo "::error::repo secret $v is not set"; exit 1; fi
+          done
+
+      - name: Sync notebooks to the workspace (pipeline/ + ml/)
+        run: python -m tools.deploy
+
       - name: Ingest + run Databricks Job
         run: python -m ingestion.cli ingest --trigger-job
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_JOB_ID: ${{ secrets.DATABRICKS_JOB_ID }}
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-          GRIDWISE_CATALOG: ${{ secrets.GRIDWISE_CATALOG }}
+
+      - name: Per-task results
+        if: always()
+        run: python -m tools.job last

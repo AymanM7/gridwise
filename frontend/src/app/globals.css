@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0b0d;
+  --panel: #121418;
+  --panel-2: #181b21;
+  --line: #262a32;
+  --text: #e8eaed;
+  --muted: #9aa1ac;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --accent: #38bdf8;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-lvl-green: var(--green);
+  --color-lvl-yellow: var(--yellow);
+  --color-lvl-red: var(--red);
+  --color-accent: var(--accent);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+body {
+  min-height: 100vh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

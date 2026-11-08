@@ -1,0 +1,85 @@
+{
+  "latest": {
+    "date": "2026-11-06",
+    "source": "backtest",
+    "mape": 15.3,
+    "demand_mape": 5.84,
+    "spike_recall": null,
+    "band_coverage": 87.5,
+    "spike_hours_caught": 0,
+    "spike_hours_actual": 0
+  },
+  "rows": [
+    {
+      "date": "2026-11-06",
+      "source": "backtest",
+      "mape": 15.3,
+      "demand_mape": 5.84,
+      "spike_recall": null,
+      "band_coverage": 87.5,
+      "spike_hours_caught": 0,
+      "spike_hours_actual": 0
+    },
+    {
+      "date": "2026-11-05",
+      "source": "backtest",
+      "mape": 14.2,
+      "demand_mape": 3.63,
+      "spike_recall": null,
+      "band_coverage": 83.3,
+      "spike_hours_caught": 0,
+      "spike_hours_actual": 0
+    },
+    {
+      "date": "2026-11-04",
+      "source": "backtest",
+      "mape": 14.29,
+      "demand_mape": 4.35,
+      "spike_recall": null,
+      "band_coverage": 70.8,
+      "spike_hours_caught": 0,
+      "spike_hours_actual": 0
+    },
+    {
+      "date": "2026-11-03",
+      "source": "backtest",
+      "mape": 12.33,
+      "demand_mape": 3.6,
+      "spike_recall": 1.0,
+      "band_coverage": 83.3,
+      "spike_hours_caught": 4,
+      "spike_hours_actual": 4
+    },
+    {
+      "date": "2026-11-02",
+      "source": "backtest",
+      "mape": 28.69,
+      "demand_mape": 5.68,
+      "spike_recall": null,
+      "band_coverage": 41.7,
+      "spike_hours_caught": 0,
+      "spike_hours_actual": 0
+    },
+    {
+      "date": "2026-11-01",
+      "source": "backtest",
+      "mape": 15.59,
+      "demand_mape": 6.63,
+      "spike_recall": null,
+      "band_coverage": 76.0,
+      "spike_hours_caught": 0,
+      "spike_hours_actual": 0
+    },
+    {
+      "date": "2026-10-31",
+      "source": "backtest",
+      "mape": 18.97,
+      "demand_mape": 5.17,
+      "spike_recall": 1.0,
+      "band_coverage": 8.3,
+      "spike_hours_caught": 2,
+      "spike_hours_actual": 2
+    }
+  ],
+  "note": "Backtest rows grade Model A's P50 on held-out days; live rows start once forecast batches have actuals."
+}

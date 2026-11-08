@@ -1,0 +1,10 @@
+# GridWise API (FastAPI on Tiger Data). Install: .venv/Scripts/python -m pip install -r backend/requirements.txt
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30
+psycopg[binary]>=3.2,<4
+psycopg-pool>=3.2,<4
+pydantic>=2.7,<3
+requests>=2.31
+python-dotenv>=1.0
+tzdata>=2024.1          # zoneinfo data on Windows / slim images
+databricks-sdk>=0.40     # auto-sync (app/refresh.py -> db.sync): Jobs API + SQL warehouse reads

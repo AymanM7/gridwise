@@ -86,8 +86,9 @@ PRICE_FEATURES = ["price_lag_48h", "price_lag_168h", "price_roll168_mean_l48",
                   "price_roll168_max_l48", "spike_count_168_l48"]
 FEATURES_B = FEATURES_A + PRICE_FEATURES + ["net_load_p50"]
 
-# Model D (demand): FEATURES_A plus extra demand lags / rolling windows, all >= 48 h, matched by timestamp from
-# silver.grid_hourly.demand_mw (gold.features carries only demand_lag_48h / 168h).
+# Model D (demand): FEATURES_A plus extra demand lags / rolling windows, all >= 48 h. Since the Phase 3 handoff these
+# (and the target y_demand_mw) are built in 03_gold -> gold.features for every row incl. the 48 forecast rows, so
+# inference scores Model D straight from Gold. Values are identical to the former in-notebook pandas build (<= 3e-11 MW).
 DEMAND_EXTRA = ["demand_lag_72h", "demand_lag_336h", "demand_roll24_mean_l48", "demand_roll168_mean_l48",
                 "demand_roll168_max_l48"]
 FEATURES_D = FEATURES_A + DEMAND_EXTRA
@@ -102,8 +103,9 @@ assert not BANNED & set(FEATURES_B + FEATURES_D), "banned feature in model input
 # COMMAND ----------
 
 feat_sdf = spark.table(f"{catalog}.gold.features")
-missing = sorted(set(FEATURES_A + PRICE_FEATURES + ["ts_utc", "y_net_load_mw", "y_is_spike", "y_price_usd_mwh",
-                                                     "is_forecast_row", "anchor_ts"]) - set(feat_sdf.columns))
+missing = sorted(set(FEATURES_D + PRICE_FEATURES + ["ts_utc", "y_net_load_mw", "y_is_spike", "y_price_usd_mwh",
+                                                     "y_demand_mw", "is_forecast_row", "anchor_ts"])
+                 - set(feat_sdf.columns))
 assert not missing, f"gold.features is missing contract columns: {missing}"
 
 pdf = feat_sdf.toPandas()
@@ -111,19 +113,8 @@ pdf["ts_utc"] = pd.to_datetime(pdf["ts_utc"])
 anchor_ts = pd.to_datetime(pdf["anchor_ts"].iloc[0])
 TEST_START = anchor_ts - pd.Timedelta(days=TEST_DAYS)   # test: ts_utc > TEST_START
 
-# Demand target + DEMAND_EXTRA features, by timestamp (never row position) on a gap-free hourly index.
-sil = spark.table(f"{catalog}.silver.grid_hourly").select("ts_utc", "demand_mw").toPandas()
-sil["ts_utc"] = pd.to_datetime(sil["ts_utc"])
-dem = sil.set_index("ts_utc")["demand_mw"].sort_index()
-dem = dem[~dem.index.duplicated(keep="last")].asfreq("h")
-H48 = pd.Timedelta(hours=48)
-pdf["y_demand_mw"] = dem.reindex(pdf["ts_utc"]).values
-for h in (72, 336):
-    pdf[f"demand_lag_{h}h"] = dem.reindex(pdf["ts_utc"] - pd.Timedelta(hours=h)).values
-pdf["demand_roll24_mean_l48"] = dem.rolling(24, min_periods=12).mean().reindex(pdf["ts_utc"] - H48).values
-pdf["demand_roll168_mean_l48"] = dem.rolling(168, min_periods=84).mean().reindex(pdf["ts_utc"] - H48).values
-pdf["demand_roll168_max_l48"] = dem.rolling(168, min_periods=84).max().reindex(pdf["ts_utc"] - H48).values
-pdf.loc[pdf["is_forecast_row"].astype(bool), "y_demand_mw"] = np.nan   # forecast rows never carry actuals
+# Demand target + DEMAND_EXTRA features come from gold.features (03_gold); no recomputation here.
+pdf.loc[pdf["is_forecast_row"].astype(bool), "y_demand_mw"] = np.nan   # forecast rows never carry actuals (Gold: NULL)
 
 hist = pdf[~pdf["is_forecast_row"].astype(bool)].sort_values("ts_utc").reset_index(drop=True)
 fcst = pdf[pdf["is_forecast_row"].astype(bool)].sort_values("ts_utc").reset_index(drop=True)

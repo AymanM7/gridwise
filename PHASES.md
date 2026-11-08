@@ -122,15 +122,15 @@ Tick boxes as you go. Each phase ends with a ✅ checkpoint you can show a judge
 - [x] Log params, metrics and artifacts; register `grid.ml.net_load` and `grid.ml.spike` with alias `@champion` *(champions: net_load v4, spike v2, demand v1; `@champion` loads and predicts 48×3 with no nulls; metrics in `gold.model_metrics`)*
 
 ### 3.5 SHAP drivers
-- [ ] Top-3 drivers per forecast hour → `gold.forecast_drivers`
+- [x] Top-3 drivers per forecast hour → `gold.forecast_drivers` *(`06_explain`, TreeSHAP on the model behind `strain_source` (Model D demand, minus ERCOT wind/solar as drivers): 144 rows = 48 h × 3, SHAP + base reconstructs `net_load_used` to 0.0 MW, 14/14 checks pass. Top driver every hour: low ERCOT wind forecast, avg +8.2 GW. UI copy still needs plain labels ('Low wind output', 'No solar output (night)'))*
 
 ### 3.6 Batch inference
-- [ ] Next 48 h → `gold.forecasts` (P10/P50/P90, spike_prob, strain, level)
+- [ ] Next 48 h → `gold.forecasts` (P10/P50/P90, spike_prob, strain, level) *(Built and all checks pass (`05_predict`, run_ts 2026-11-07 20Z, 48 rows: 8 green / 23 yellow / 17 red, max strain 100, max spike_prob 0.71). Strain uses `demand_minus_ercot_renewables` = Model D demand − ERCOT wind − ERCOT solar on 48/48 rows (Model A P50 kept as a column; fixes the 26.6 vs 38.3 GW gap); band = Model D P10/P90 with ERCOT P80, contains `net_load_used` 48/48. **Held open by PM review:** Model D demand looks ~4–6 GW low vs the latest actuals (49.7 GW at 21Z right after an observed 53.1 GW) because of the lag-48 floor, so some hours may show green/yellow while the grid is tighter. Fix: anchor Model D to the last 6 actual hours (`demand_anchor_adj_mw`, decaying exp(−h/24)) and set `LOW_CONF_REL_WIDTH` 0.20 → 0.50 (currently flags 48/48 hours))*
 
 ### 3.7 Report card
-- [ ] Score yesterday's forecast against actuals → `gold.report_card` (MAPE, spike recall, band coverage)
+- [x] Score yesterday's forecast against actuals → `gold.report_card` (MAPE, spike recall, band coverage) *(`07_report_card`: 91 daily backtest rows 2026-08-08 → 11-06 (basis `model_a_p50`): MAPE 11.74 % (hour-weighted), P10–P90 coverage 80.6 %, demand MAPE 3.44 %, spikes caught 42/52 (recall 0.81); matches 04_train. 0 live rows yet: the first batch's hours get actuals from local 11-08; MERGE is idempotent. The displayed method (Model D − ERCOT renewables) can't be backtested yet (ERCOT forecasts in Silver only since ~11-04); the UI must say so)*
 
-**✅ Checkpoint 3:** a forecast for tomorrow, plus test MAPE (target < 5%), spike recall and band coverage. *(Not reached yet: 3.1–3.4 done, 3.5–3.7 open.)*
+**✅ Checkpoint 3:** a forecast for tomorrow, plus test MAPE (target < 5%), spike recall and band coverage. *(Mostly reached Nov 7; 3.6 held open for the demand-anchor fix. Quote to judges: demand forecast **3.45 % test MAPE** (beats the < 5 % target; seasonal-naive 6.53 %); net-load Model A **11.8 % MAPE, 36 % better than baseline (18.6 %)**, P10–P90 coverage **80.7 %**; spike model **recall 0.81** at 9× the base rate PR-AUC (backtest 42 of 52 spike hours caught). Strain story: our ML net-load model under-read November evenings (26.6 GW vs 38.3 GW), so the live strain uses our demand model minus ERCOT's own wind and solar forecasts whenever those exist (`strain_source`), and Model A is the fallback. Rule: never show green when the grid is tight.)*
 
 ---
 

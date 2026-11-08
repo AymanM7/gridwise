@@ -3,7 +3,8 @@
 # MAGIC # 03 · Gold (Phase 2.4-2.5)
 # MAGIC Builds the model-ready and dashboard layer per `docs/PHASE2_CONTRACT.md` §2:
 # MAGIC * `gold.features` – 1 row / UTC hour (same grain as `silver.grid_hourly`, incl. the 48 forecast rows); targets, calendar, weather-at-t,
-# MAGIC   AR lags **≥ 48 h** (time-based self-joins), rolling windows ending at t−48, `diag_` lags (banned for models)
+# MAGIC   AR lags **≥ 48 h** (time-based self-joins), rolling windows ending at t−48, `diag_` lags (banned for models),
+# MAGIC   plus Model D's demand target `y_demand_mw` and its 5 extra demand lags / rolls (moved here from `04_train`)
 # MAGIC * `gold.strain_hourly` – strain index 0–100 = percent rank of net load within the local calendar month; green / yellow / red
 # MAGIC * `gold.strain_reference` – percentile breakpoints per month (Phase 3 maps forecast P50 → strain)
 # MAGIC * `gold.spike_events` – every priced hour, `is_spike` = hourly avg RT price > $100/MWh
@@ -77,13 +78,18 @@ SELECT ts_utc,
   CASE WHEN nl_c168 >= 84 THEN nl_m168 END            AS nl_roll168_max_l48,
   CASE WHEN px_c168 >= 84 THEN px_s168 / px_c168 END AS price_roll168_mean_l48,
   CASE WHEN px_c168 >= 84 THEN px_m168 END            AS price_roll168_max_l48,
-  CASE WHEN px_c168 >= 84 THEN sp_s168 END            AS spike_count_168_l48
+  CASE WHEN px_c168 >= 84 THEN sp_s168 END            AS spike_count_168_l48,
+  CASE WHEN dm_c24  >= 12 THEN dm_s24  / dm_c24  END AS demand_roll24_mean_l48,
+  CASE WHEN dm_c168 >= 84 THEN dm_s168 / dm_c168 END AS demand_roll168_mean_l48,
+  CASE WHEN dm_c168 >= 84 THEN dm_m168 END            AS demand_roll168_max_l48
 FROM (
   SELECT ts_utc,
     sum(nl)   OVER w24  AS nl_s24,  count(nl) OVER w24  AS nl_c24,
     sum(nl)   OVER w168 AS nl_s168, count(nl) OVER w168 AS nl_c168, max(nl) OVER w168 AS nl_m168,
     sum(px)   OVER w168 AS px_s168, count(px) OVER w168 AS px_c168, max(px) OVER w168 AS px_m168,
-    sum(spk)  OVER w168 AS sp_s168
+    sum(spk)  OVER w168 AS sp_s168,
+    sum(dem)  OVER w24  AS dm_s24,  count(dem) OVER w24  AS dm_c24,
+    sum(dem)  OVER w168 AS dm_s168, count(dem) OVER w168 AS dm_c168, max(dem) OVER w168 AS dm_m168
   FROM (SELECT *, unix_timestamp(ts_utc) AS es FROM base)
   WINDOW w24  AS (ORDER BY es RANGE BETWEEN 255600 PRECEDING AND 172800 PRECEDING),   -- (48+23)h .. 48h
          w168 AS (ORDER BY es RANGE BETWEEN 774000 PRECEDING AND 172800 PRECEDING)    -- (48+167)h .. 48h
@@ -106,6 +112,7 @@ SELECT
   g.net_load_mw AS y_net_load_mw,
   g.price_usd_mwh AS y_price_usd_mwh,
   CASE WHEN g.price_usd_mwh IS NULL THEN NULL WHEN g.price_usd_mwh > {SPIKE_USD} THEN 1 ELSE 0 END AS y_is_spike,
+  CASE WHEN g.is_forecast_row THEN NULL ELSE g.demand_mw END AS y_demand_mw,   -- Model D target
   -- calendar (local wall clock)
   hour(g.ts_local) AS hour,
   ((dayofweek(g.ts_local) + 5) % 7) + 1 AS dow,
@@ -126,12 +133,14 @@ SELECT
   -- AR lags >= 48h (time-based joins)
   l48.nl  AS nl_lag_48h,  l72.nl AS nl_lag_72h, l168.nl AS nl_lag_168h, l336.nl AS nl_lag_336h,
   l48.dem AS demand_lag_48h, l168.dem AS demand_lag_168h,
+  l72.dem AS demand_lag_72h, l336.dem AS demand_lag_336h,          -- Model D extras (moved from 04_train)
   l48.wnd AS wind_lag_48h,   l168.wnd AS wind_lag_168h,
   l48.sol AS solar_lag_48h,  l168.sol AS solar_lag_168h,
   l48.px  AS price_lag_48h,  l168.px  AS price_lag_168h,
   -- AR rolling ending at t-48
   r.nl_roll24_mean_l48, r.nl_roll168_mean_l48, r.nl_roll168_max_l48,
   r.price_roll168_mean_l48, r.price_roll168_max_l48, CAST(r.spike_count_168_l48 AS DOUBLE) AS spike_count_168_l48,
+  r.demand_roll24_mean_l48, r.demand_roll168_mean_l48, r.demand_roll168_max_l48,   -- Model D extras
   -- diagnostics (BANNED for models)
   l1.nl AS diag_nl_lag_1h, l24.nl AS diag_nl_lag_24h,
   -- live ERCOT (BANNED for training; inference display only)
@@ -249,6 +258,9 @@ FEATURES_A = [
     "wind_lag_48h", "wind_lag_168h", "solar_lag_48h", "solar_lag_168h",
     "nl_roll24_mean_l48", "nl_roll168_mean_l48", "nl_roll168_max_l48",
 ]
+# Model D (demand) extras, moved here from 04_train (Phase 3 handoff): FEATURES_D = FEATURES_A + DEMAND_EXTRA
+DEMAND_EXTRA = ["demand_lag_72h", "demand_lag_336h", "demand_roll24_mean_l48", "demand_roll168_mean_l48",
+                "demand_roll168_max_l48"]
 F_ = f"{G}.features"
 
 # grain
@@ -297,8 +309,41 @@ chk("forecast_rows_price_features",
      "spike_count_168_l48": r.sc168, "price_lag_168h_info": r.p168},
     r.n == 48 and r.p48 >= 46 and r.pr168 >= 46 and r.sc168 >= 46)
 
-# feature null rates on actual rows from 2023-01-15
-exprs = ", ".join(f"avg(CASE WHEN {c} IS NULL THEN 1.0 ELSE 0 END) AS {c}" for c in FEATURES_A)
+# Model D extras on forecast rows: every one of the 48 rows must be scoreable by grid.ml.demand
+r = spark.sql(f"""SELECT count(*) n, {", ".join(f"count({c}) AS {c}" for c in DEMAND_EXTRA)}, count(y_demand_mw) y_nn
+FROM {F_} WHERE is_forecast_row""").first().asDict()
+chk("forecast_rows_demand_features", r, r["n"] == 48 and all(r[c] == 48 for c in DEMAND_EXTRA) and r["y_nn"] == 0)
+
+# leakage guard 3: Model D extras recomputed independently from Silver (exact lags; rolls over [t-71h, t-48h] /
+# [t-215h, t-48h]) for a 500-row sample incl. all forecast rows; max abs diff must be float noise
+r = spark.sql(f"""
+WITH samp AS (
+  SELECT * FROM (SELECT * FROM {F_} WHERE NOT is_forecast_row ORDER BY hash(ts_utc) LIMIT 452)
+  UNION ALL SELECT * FROM {F_} WHERE is_forecast_row),
+rec AS (
+  SELECT x.ts_utc,
+    max(CASE WHEN s.ts_utc = x.ts_utc - INTERVAL 72 HOURS THEN s.demand_mw END) l72,
+    max(CASE WHEN s.ts_utc = x.ts_utc - INTERVAL 336 HOURS THEN s.demand_mw END) l336,
+    avg(CASE WHEN s.ts_utc >= x.ts_utc - INTERVAL 71 HOURS THEN s.demand_mw END) r24,
+    avg(CASE WHEN s.ts_utc >= x.ts_utc - INTERVAL 215 HOURS THEN s.demand_mw END) r168,
+    max(CASE WHEN s.ts_utc >= x.ts_utc - INTERVAL 215 HOURS THEN s.demand_mw END) m168,
+    max(s.ts_utc) max_used
+  FROM samp x JOIN {S}.grid_hourly s
+    ON s.ts_utc BETWEEN x.ts_utc - INTERVAL 336 HOURS AND x.ts_utc - INTERVAL 48 HOURS
+  GROUP BY x.ts_utc)
+SELECT count(*) n,
+  sum(CASE WHEN NOT (f.demand_lag_72h <=> e.l72) OR NOT (f.demand_lag_336h <=> e.l336) THEN 1 ELSE 0 END) lag_mism,
+  max(greatest(abs(f.demand_roll24_mean_l48 - e.r24), abs(f.demand_roll168_mean_l48 - e.r168),
+               abs(f.demand_roll168_max_l48 - e.m168))) roll_max_abs_diff,
+  sum(CASE WHEN e.max_used > f.ts_utc - INTERVAL 48 HOURS THEN 1 ELSE 0 END) future
+FROM samp f JOIN rec e USING (ts_utc)
+WHERE f.demand_roll168_mean_l48 IS NOT NULL""").first()
+chk("leakage_demand_extra_sample", {"sampled": r.n, "lag_mismatches": r.lag_mism,
+                                    "roll_max_abs_diff_mw": r.roll_max_abs_diff, "uses_after_t_minus_48": r.future},
+    r.n > 0 and r.lag_mism == 0 and r.roll_max_abs_diff is not None and r.roll_max_abs_diff < 1e-3 and r.future == 0)
+
+# feature null rates on actual rows from 2023-01-15 (FEATURES_A + Model D extras)
+exprs = ", ".join(f"avg(CASE WHEN {c} IS NULL THEN 1.0 ELSE 0 END) AS {c}" for c in FEATURES_A + DEMAND_EXTRA)
 nr = spark.sql(f"SELECT {exprs} FROM {F_} WHERE NOT is_forecast_row AND ts_utc >= '2023-01-15'").first().asDict()
 nr = {k: round(float(v) * 100, 3) for k, v in nr.items()}
 worst = max(nr, key=nr.get)

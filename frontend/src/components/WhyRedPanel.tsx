@@ -192,7 +192,9 @@ function HourDetail({
           <Empty>
             {q.data?.source === "fixtures"
               ? "The demo snapshot includes drivers for 3 hours (the reddest, the riskiest and the calmest). Try one of those, or run against the live API."
-              : "No driver breakdown for this hour yet."}
+              : q.data?.source === "snapshot"
+                ? "The live API isn't reachable, so this is the saved snapshot, which only explains 3 hours (the reddest, the riskiest and the calmest). Start the API to see every hour."
+                : "No driver breakdown for this hour yet."}
           </Empty>
         ) : (
           <ol className="space-y-1.5">

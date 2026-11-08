@@ -47,7 +47,7 @@ The key metric is **net load = demand − wind − solar**: the part of demand t
 4. **AI layer:** **Gemini** writes the daily advice and "Why Red?" sentences inside the pipeline; **Genie** answers natural-language questions over the Gold tables.
 5. **Serving:** forecasts sync to **Tiger Data** (TimescaleDB hypertables + continuous aggregates), a **FastAPI** service on **Vultr** serves them, and the dashboard lives on a **GoDaddy** domain.
 
-More detail: [ARCHITECTURE.md](ARCHITECTURE.md) (box diagrams for every flow) · [DASHBOARD.md](DASHBOARD.md) (dashboard architecture + user guide) · [JUDGES.md](JUDGES.md) (demo script) · [TECH_STACK.md](TECH_STACK.md)
+More detail: [ARCHITECTURE.md](ARCHITECTURE.md) (box diagrams for every flow) · [DASHBOARD.md](DASHBOARD.md) (dashboard architecture + user guide) · [DASHBOARD_V3.md](DASHBOARD_V3.md) (full architecture diagrams) · [JUDGES.md](JUDGES.md) (demo script) · [TECH_STACK.md](TECH_STACK.md)
 
 ### A detail judges ask about: daylight saving time
 

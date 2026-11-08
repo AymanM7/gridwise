@@ -5,9 +5,9 @@ Catalog: `grid` (widget `catalog`). All timestamps are `TIMESTAMP` in UTC; `spar
 
 | Notebook | Owner | Writes (Delta, `CREATE OR REPLACE` / overwrite) |
 |---|---|---|
-| `notebooks/02_silver.py` | Silver data engineer | `silver.weather_hourly`, `silver.grid_hourly`, `silver.dq_checks` |
-| `notebooks/03_gold.py` | Gold analytics engineer | `gold.features`, `gold.strain_hourly`, `gold.strain_reference`, `gold.spike_events`, `gold.dq_checks` |
-| `notebooks/04_train.py` | ML engineer | MLflow runs, `grid.ml.net_load`, `grid.ml.spike`, `gold.model_metrics` |
+| `pipeline/02_silver.py` | Silver data engineer | `silver.weather_hourly`, `silver.grid_hourly`, `silver.dq_checks` |
+| `pipeline/03_gold.py` | Gold analytics engineer | `gold.features`, `gold.strain_hourly`, `gold.strain_reference`, `gold.spike_events`, `gold.dq_checks` |
+| `ml/04_train.py` | ML engineer | MLflow runs, `grid.ml.net_load`, `grid.ml.spike`, `gold.model_metrics` |
 
 Nobody edits another owner's notebook. Each notebook ends with `dbutils.notebook.exit(json.dumps(summary))`, where `summary` holds the acceptance check results below (`{"check_name": {"value": ..., "pass": true/false}}` plus `"all_pass"`).
 
@@ -113,7 +113,7 @@ Compute lags by **time** (self-join on `ts_utc − INTERVAL n HOURS`), not by ro
 
 ---
 
-## 3. Phase 3 interface (`notebooks/04_train.py`, ML engineer)
+## 3. Phase 3 interface (`ml/04_train.py`, ML engineer)
 
 - Input: `grid.gold.features WHERE NOT is_forecast_row AND y_net_load_mw IS NOT NULL` (Model B: `y_is_spike IS NOT NULL`).
 - **Feature list** (constant `FEATURES_A` in the notebook): calendar + weather-at-t + AR lags ≥ 48 h + AR rolling `_l48` groups from §2.2. No `diag_*`, no `wind/solar_forecast_mw`, no `demand_forecast_mw`, no `price_*` (prices are for Model B only).
@@ -168,7 +168,7 @@ Compute lags by **time** (self-join on `ts_utc − INTERVAL n HOURS`), not by ro
 
 ## 5. Hand-off order
 
-`02_silver` → `03_gold` → `04_train`. The Gold engineer can write SQL against the Silver schema above before Silver lands. The ML engineer can build on a provisional `gold.features` and must not rename columns. Compute budget (Free Edition): **at most 2 full runs per notebook per iteration**. Test SQL on the warehouse (`worker.sql`) before spending a notebook run.
+`02_silver` → `03_gold` → `04_train`. The Gold engineer can write SQL against the Silver schema above before Silver lands. The ML engineer can build on a provisional `gold.features` and must not rename columns. Compute budget (Free Edition): **at most 2 full runs per notebook per iteration**. Test SQL on the warehouse (`tools.sql`) before spending a notebook run.
 
 
 ---

@@ -1,6 +1,6 @@
 """Run SQL on the Databricks SQL warehouse and print the result as a table.
 
-    python -m worker.sql "SELECT count(*) FROM grid.silver.grid_hourly"
+    python -m tools.sql "SELECT count(*) FROM grid.silver.grid_hourly"
 """
 import sys
 import time
@@ -8,7 +8,7 @@ import time
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
 
-from .config import get_settings
+from ingestion.config import get_settings
 import os
 
 

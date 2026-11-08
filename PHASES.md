@@ -13,7 +13,7 @@ Tick boxes as you go. Each phase ends with a ✅ checkpoint you can show a judge
 | 6 | Ship | 1.5 h | Submitted on Devpost |
 
 > **Free Edition rule that shapes the design:** Databricks Free Edition notebooks can only reach a short list of trusted domains (PyPI works; ERCOT, EIA, Open-Meteo, Gemini and Tiger Data most likely don't).
-> So a small **worker** (`worker/`, run locally or by GitHub Actions) fetches the data and uploads it *into* a Unity Catalog Volume. Uploading into Databricks is always allowed. Databricks does everything else.
+> So a small **worker** (`ingestion/`, run locally or by GitHub Actions) fetches the data and uploads it *into* a Unity Catalog Volume. Uploading into Databricks is always allowed. Databricks does everything else.
 > Step 1.4 confirms exactly what's blocked in your workspace.
 
 ---
@@ -37,37 +37,37 @@ Tick boxes as you go. Each phase ends with a ✅ checkpoint you can show a judge
 
 ### 1.2 Repo and local environment
 - [ ] `git init`, create a **public** GitHub repo, push
-- [ ] `python -m venv .venv` → `.venv\Scripts\activate` → `pip install -r worker/requirements.txt`
+- [ ] `python -m venv .venv` → `.venv\Scripts\activate` → `pip install -r ingestion/requirements.txt`
 - [ ] `copy .env.example .env` and fill in the Databricks + EIA values
 
 ### 1.3 Databricks workspace setup
-- [x] `python -m worker.login https://<your-workspace>.cloud.databricks.com` opens a browser login, then creates a 90-day token and saves it to `.env`
-- [x] `python -m worker.deploy --run 00_setup` uploads `notebooks/` to `/Users/<you>/gridwise/notebooks` and runs setup on serverless
+- [x] `python -m tools.login https://<your-workspace>.cloud.databricks.com` opens a browser login, then creates a 90-day token and saves it to `.env`
+- [x] `python -m tools.deploy --run 00_setup` uploads `pipeline/` + `ml/` to `/Users/<you>/gridwise/{pipeline,ml}` and runs setup on serverless
   (or: **Workspace → Create → Git folder** with the GitHub repo URL, then run `00_setup` by hand)
 - [x] Created catalog `grid`, schemas `bronze/silver/gold/ml`, and volumes `bronze.landing` and `bronze.checkpoints`
 - [ ] If creating the catalog fails, set the widget to `workspace`, re-run, and set `GRIDWISE_CATALOG=workspace` in `.env`
 
 ### 1.4 Connectivity check
-- [x] `python -m worker.deploy --run 00_connectivity_check`
+- [x] `python -m tools.deploy --run 00_connectivity_check`
 - [x] Result (Nov 7): ERCOT, EIA, Open-Meteo and the Gemini API are **all reachable** from this workspace. Open-Meteo's archive returned 429 (rate-limited on shared Databricks IPs), so the history backfill runs from the worker.
   - 4.1: Gemini can be called **inside Databricks** (notebook task or `ai_query`)
   - Hourly ingestion *can* move into a Databricks notebook task later, so GitHub Actions becomes optional
   - Tiger Data reachability: re-run with the `tiger_host` widget once the Tiger service exists (5.2)
 
 ### 1.5 Historical backfill (one time, ~10 min)
-- [x] `python -m worker.cli backfill --start 2023-01-01`
+- [x] `python -m ingestion.cli backfill --start 2023-01-01`
   - EIA-930 hourly demand / demand forecast / wind / solar, 2023 → now
   - ERCOT real-time hub-average price archive, one file per year (~100 s/year)
   - Open-Meteo hourly weather archive for Houston, DFW, Austin, San Antonio
 - [x] Files land in `/Volumes/grid/bronze/landing/<source>/` (local copy in `data/landing/`)
 
 ### 1.6 Live ingest (the hourly refresh)
-- [x] `python -m worker.cli ingest`
+- [x] `python -m ingestion.cli ingest`
   - ERCOT live 5-min load, 15-min prices, wind + solar actuals **and 7-day forecasts**
   - Last 4 days of EIA, plus the Open-Meteo forecast (10 past + 3 future days, which overlaps the ~6-day archive lag)
 
 ### 1.7 Load Bronze tables
-- [x] Run `notebooks/01_bronze` (Auto Loader picks up only new files each run)
+- [x] Run `pipeline/01_bronze` (Auto Loader picks up only new files each run)
 - [x] Spot-check: `SELECT * FROM grid.bronze.eia_hourly ORDER BY interval_start_utc DESC LIMIT 10`
 
 **✅ Checkpoint 1:** all 7 Bronze tables exist and the checkpoint query shows 2023 → today. *(Done Nov 7: EIA 33.9k hourly rows, prices 134.6k, weather 134.5k, all from Jan 2023.)*

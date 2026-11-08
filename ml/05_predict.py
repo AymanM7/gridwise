@@ -242,7 +242,7 @@ SCHEMA = """run_ts TIMESTAMP, target_ts TIMESTAMP, horizon_h INT, net_load_p10 D
   model_a_version STRING, model_b_version STRING, model_d_version STRING, created_at TIMESTAMP,
   demand_p10 DOUBLE, demand_p90 DOUBLE, wind_fcst_p80_mw DOUBLE, solar_fcst_p80_mw DOUBLE, band_source STRING"""
 spark.sql(f"CREATE TABLE IF NOT EXISTS {TABLE} ({SCHEMA}) USING DELTA "
-          f"COMMENT 'GridWise 48 h forecasts, one batch per run_ts (= anchor_ts); written by notebooks/05_predict'")
+          f"COMMENT 'GridWise 48 h forecasts, one batch per run_ts (= anchor_ts); written by ml/05_predict'")
 # Schema evolution for tables created by the first version of this notebook: add any new columns.
 _existing = set(spark.table(TABLE).columns)
 _new = [c.strip() for c in SCHEMA.replace("\n", " ").split(",") if c.split()[0] not in _existing]

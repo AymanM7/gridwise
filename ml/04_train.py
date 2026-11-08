@@ -434,7 +434,7 @@ mlflow.set_registry_uri("databricks-uc")
 try:
     exp = mlflow.set_experiment(f"/Users/{current_user}/gridwise")
 except Exception as e:
-    # /Users/<me>/gridwise is also the workspace folder worker.deploy uploads notebooks into; if that path is a
+    # /Users/<me>/gridwise is also the workspace folder tools.deploy uploads notebooks into; if that path is a
     # folder, MLflow cannot create an experiment there, so nest the experiment inside it.
     print("experiment path fallback:", str(e)[:200])
     exp = mlflow.set_experiment(f"/Users/{current_user}/gridwise/gridwise_experiment")

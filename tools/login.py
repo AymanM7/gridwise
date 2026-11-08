@@ -1,14 +1,14 @@
 """One-time helper: browser login to Databricks, then create a personal access token
 for the worker and save DATABRICKS_HOST / DATABRICKS_TOKEN into .env.
 
-    python -m worker.login https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
+    python -m tools.login https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
 """
 import re
 import sys
 
 from databricks.sdk import WorkspaceClient
 
-from .config import ROOT
+from ingestion.config import ROOT
 
 
 def set_env(key: str, value: str) -> None:

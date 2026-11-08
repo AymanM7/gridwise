@@ -297,7 +297,7 @@ COLS = ["run_ts", "target_ts", "horizon_h", "rank", "feature", "feature_label", 
         "direction", "driver_source", "strain_source", "model_name", "model_version", "base_mw", "net_load_used",
         "created_at"]
 spark.sql(f"CREATE TABLE IF NOT EXISTS {TABLE} ({SCHEMA}) USING DELTA "
-          f"COMMENT 'GridWise top-3 SHAP drivers per forecast hour, one batch per run_ts; written by notebooks/06_explain'")
+          f"COMMENT 'GridWise top-3 SHAP drivers per forecast hour, one batch per run_ts; written by ml/06_explain'")
 
 
 def py(v):

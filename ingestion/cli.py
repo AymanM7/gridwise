@@ -1,7 +1,7 @@
-"""GridWise worker CLI.
+"""GridWise ingestion CLI.
 
-    python -m worker.cli backfill --start 2023-01-01      # one-time history (Phase 1.5)
-    python -m worker.cli ingest                           # hourly refresh (Phase 1.6)
+    python -m ingestion.cli backfill --start 2023-01-01      # one-time history (Phase 1.5)
+    python -m ingestion.cli ingest                           # hourly refresh (Phase 1.6)
     add --local-only to skip the Databricks upload (writes data/landing/ only)
 """
 import argparse
@@ -88,7 +88,7 @@ def ingest(args, s):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="worker")
+    p = argparse.ArgumentParser(prog="ingestion")
     sub = p.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("backfill")
     b.add_argument("--start", default="2023-01-01")

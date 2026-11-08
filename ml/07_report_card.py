@@ -274,7 +274,7 @@ SCHEMA = """date DATE, source STRING, mape DOUBLE, wmape DOUBLE, spike_recall DO
   demand_mape DOUBLE, basis STRING, run_ts TIMESTAMP, model_versions STRING"""
 COLS = [c.strip().split(" ")[0] for c in SCHEMA.replace("\n", " ").split(",")]
 spark.sql(f"CREATE TABLE IF NOT EXISTS {TABLE} ({SCHEMA}) USING DELTA COMMENT 'GridWise daily report card "
-          f"(live forecasts vs actuals, plus champion backtest on the test window); written by notebooks/07_report_card'")
+          f"(live forecasts vs actuals, plus champion backtest on the test window); written by ml/07_report_card'")
 
 stage = pd.concat([df for df in (bt_df, live_df) if len(df)], ignore_index=True)
 stage["computed_at"] = COMPUTED_AT

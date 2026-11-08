@@ -1,5 +1,5 @@
 # Secret-scanning rules for GridWise.
-# Used by: scripts/check_secrets.py (local pre-commit hook) and
+# Used by: tools/check_secrets.py (local pre-commit hook) and
 #          .github/workflows/secret-scan.yml (gitleaks on every push / PR).
 # Real keys live ONLY in .env (git-ignored). Never commit them anywhere else.
 

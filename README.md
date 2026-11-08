@@ -84,19 +84,19 @@ git clone https://github.com/AymanM7/gridwise.git
 cd gridwise
 python -m venv .venv
 .venv\Scripts\activate                      # macOS/Linux: source .venv/bin/activate
-pip install -r worker/requirements.txt
+pip install -r ingestion/requirements.txt
 copy .env.example .env                      # then fill in EIA_API_KEY (and others as you reach them)
-python scripts/check_secrets.py --install   # blocks commits that contain secrets
+python tools/check_secrets.py --install   # blocks commits that contain secrets
 
-python -m worker.login https://<your-workspace>.cloud.databricks.com   # browser login, saves a token to .env
-python -m worker.deploy --run 00_setup      # creates catalog/schemas/volumes
-python -m worker.cli backfill --start 2023-01-01   # ~10 min, history → Databricks
-python -m worker.cli ingest                 # latest live data
-python -m worker.deploy --run 01_bronze     # load Bronze tables
-python -m worker.sql "SELECT count(*) FROM grid.bronze.eia_hourly"
+python -m tools.login https://<your-workspace>.cloud.databricks.com   # browser login, saves a token to .env
+python -m tools.deploy --run 00_setup      # creates catalog/schemas/volumes
+python -m ingestion.cli backfill --start 2023-01-01   # ~10 min, history → Databricks
+python -m ingestion.cli ingest                 # latest live data
+python -m tools.deploy --run 01_bronze     # load Bronze tables
+python -m tools.sql "SELECT count(*) FROM grid.bronze.eia_hourly"
 ```
 
-Add `--local-only` to any `worker.cli` command to test without Databricks (it writes to `data/landing/`).
+Add `--local-only` to any `ingestion.cli` command to test without Databricks (it writes to `data/landing/`).
 
 ### Why there's a "worker"
 
@@ -105,17 +105,25 @@ Databricks Free Edition restricts outbound internet from notebooks, so a small w
 ## Repository layout
 
 ```text
-worker/            data fetchers (ERCOT, EIA, Open-Meteo) + Databricks helpers (login, deploy, sql)
-notebooks/         Databricks notebooks: 00 setup → 01 bronze → 02 silver → 03 gold → 04 train ...
-docs/              architecture diagram, Phase 2 data contract, diagram generator
-scripts/           check_secrets.py (pre-commit secret scanner)
-.github/workflows/ secret-scan (every push) · gridwise-hourly (pipeline trigger)
-.gitleaks.toml     secret-detection rules
+gridwise/
+├── ingestion/        📥 DATA INGESTION: fetch ERCOT · EIA · Open-Meteo, upload into Databricks
+│   └── sources/        ercot.py · eia.py · weather.py
+├── pipeline/         🏗️ DATABRICKS PIPELINE: 00_setup → 01_bronze → 02_silver → 03_gold
+├── ml/               🤖 MACHINE LEARNING: 04_train · 05_predict · 06_explain · 07_report_card
+├── db/               🗄️ SERVING DATABASE: Tiger Data schema + continuous aggregates  (Phase 5)
+├── backend/          🔌 API: FastAPI on Vultr                                       (Phase 5)
+├── frontend/         🖥️ DASHBOARD: Next.js at gridwise.tech                          (Phase 5)
+├── infra/            🚀 DEPLOYMENT: docker-compose · Caddy · Vultr                   (Phase 5)
+├── tools/            🧰 DEV HELPERS: login · deploy · sql · check_secrets
+├── docs/             📚 architecture image · data contract · diagram generator
+├── .github/workflows/  secret-scan (every push) · gridwise-hourly (pipeline trigger)
+└── .gitleaks.toml    secret-detection rules
 ```
+Each folder has its own `README.md` explaining what's inside and how to run it.
 
 ## Security
 
-API keys live **only** in `.env`, which is git-ignored. A pre-commit hook (`scripts/check_secrets.py`) and a gitleaks GitHub Action (rules in `.gitleaks.toml`) block any commit that contains a key, token or database password.
+API keys live **only** in `.env`, which is git-ignored. A pre-commit hook (`tools/check_secrets.py`) and a gitleaks GitHub Action (rules in `.gitleaks.toml`) block any commit that contains a key, token or database password.
 
 ## Data sources & credits
 

@@ -5,8 +5,8 @@ Checks every staged file (or every tracked file with --all) against:
   2. the literal values of every key in your local .env (so even a key format we
      didn't write a regex for can't slip through).
 
-Installed as .git/hooks/pre-commit by:  python scripts/check_secrets.py --install
-Run manually:                          python scripts/check_secrets.py --all
+Installed as .git/hooks/pre-commit by:  python tools/check_secrets.py --install
+Run manually:                          python tools/check_secrets.py --all
 """
 import re
 import subprocess
@@ -79,11 +79,11 @@ def install():
     hook = ROOT / ".git" / "hooks" / "pre-commit"
     hook.write_text(
         "#!/bin/sh\n"
-        "# GridWise: block commits containing secrets (see scripts/check_secrets.py)\n"
+        "# GridWise: block commits containing secrets (see tools/check_secrets.py)\n"
         'PY="$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe"\n'
         '[ -x "$PY" ] || PY="$(git rev-parse --show-toplevel)/.venv/bin/python"\n'
         '[ -x "$PY" ] || PY=python\n'
-        'exec "$PY" "$(git rev-parse --show-toplevel)/scripts/check_secrets.py"\n',
+        'exec "$PY" "$(git rev-parse --show-toplevel)/tools/check_secrets.py"\n',
         encoding="utf-8", newline="\n")
     print(f"installed {hook}")
 

@@ -9,7 +9,7 @@
 
 The whole system on one page. Data enters at the top, gets processed in Databricks, and ends up in front of users at the bottom.
 
-> **Free Edition design.** Databricks Free Edition notebooks can only reach a short list of trusted domains (PyPI works; ERCOT, EIA, Open-Meteo, Gemini and Tiger Data most likely don't). So a small **worker** fetches the data outside Databricks and uploads it *into* a Unity Catalog Volume, which is always allowed. Databricks does all the processing, ML and Genie. The worker also handles the two outbound calls (Gemini and the Tiger sync) if `notebooks/00_connectivity_check` shows they're blocked.
+> **Free Edition design.** Databricks Free Edition notebooks can only reach a short list of trusted domains (PyPI works; ERCOT, EIA, Open-Meteo, Gemini and Tiger Data most likely don't). So a small **worker** fetches the data outside Databricks and uploads it *into* a Unity Catalog Volume, which is always allowed. Databricks does all the processing, ML and Genie. The worker also handles the two outbound calls (Gemini and the Tiger sync) if `pipeline/00_connectivity_check` shows they're blocked.
 
 {{D1}}
 
@@ -33,17 +33,17 @@ The whole system on one page. Data enters at the top, gets processed in Databric
 
 | Task | Notebook | Output |
 |---|---|---|
-| *(worker)* `ingest` | `worker/cli.py ingest` | parquet → `/Volumes/grid/bronze/landing/<source>/` |
-| `bronze` | `01_bronze.py` | `bronze.eia_hourly`, `ercot_load`, `ercot_prices`, `ercot_wind`, `ercot_solar`, `weather_hist`, `weather_forecast` |
-| `build_silver` | `02_silver.py` | `silver.grid_hourly` |
-| `build_gold` | `03_gold.py` | `gold.features`, `gold.strain_hourly`, `gold.spike_events` |
-| `train` (manual / weekly) | `04_train.py` | MLflow runs → UC models `grid.ml.net_load`, `grid.ml.spike` |
-| `predict` | `05_predict.py` | `gold.forecasts` |
-| `explain` | `06_explain.py` | `gold.forecast_drivers` |
-| `gemini_advice` | `07_advice.sql` | `gold.daily_advice` (only if AI Gateway external models work on Free Edition) |
-| `ripple_scenarios` | `08_ripple.py` | `gold.shift_scenarios` |
-| `report_card` | `09_report_card.py` | `gold.report_card` |
-| *(worker)* `publish` | `worker/cli.py publish` | Gemini advice → `gold.daily_advice` (fallback); Gold → Tiger Data |
+| *(worker)* `ingest` | `ingestion/cli.py ingest` | parquet → `/Volumes/grid/bronze/landing/<source>/` |
+| `bronze` | `pipeline/01_bronze.py` | `bronze.eia_hourly`, `ercot_load`, `ercot_prices`, `ercot_wind`, `ercot_solar`, `weather_hist`, `weather_forecast` |
+| `build_silver` | `pipeline/02_silver.py` | `silver.grid_hourly` |
+| `build_gold` | `pipeline/03_gold.py` | `gold.features`, `gold.strain_hourly`, `gold.spike_events` |
+| `train` (manual / weekly) | `ml/04_train.py` | MLflow runs → UC models `grid.ml.net_load`, `grid.ml.spike` |
+| `predict` | `ml/05_predict.py` | `gold.forecasts` |
+| `explain` | `ml/06_explain.py` | `gold.forecast_drivers` |
+| `gemini_advice` | *(Phase 4)* | `gold.daily_advice` (only if AI Gateway external models work on Free Edition) |
+| `ripple_scenarios` | *(Phase 4)* | `gold.shift_scenarios` |
+| `report_card` | `ml/07_report_card.py` | `gold.report_card` |
+| *(worker)* `publish` | *(Phase 4/5)* | Gemini advice → `gold.daily_advice` (fallback); Gold → Tiger Data |
 
 ---
 
@@ -232,20 +232,21 @@ The full step-by-step checklist (1.1 → 6.4) lives in **[PHASES.md](PHASES.md)*
 ## 11. Repository layout
 
 ```text
-/
-├── PROJECT_SCOPE.md
-├── TECH_STACK.md
-├── ARCHITECTURE.md
-├── .env.example
-├── PHASES.md
-├── worker/           # fetches ERCOT / EIA / Open-Meteo, uploads to UC Volume, publishes
-├── notebooks/        # Databricks notebooks 00–09 (see Job table)
-├── .github/workflows # hourly trigger (GitHub Actions)
-├── api/              # FastAPI app + Dockerfile
-├── frontend/         # Next.js dashboard + Dockerfile
-├── infra/            # docker-compose.yml, Caddyfile, Tiger Data schema.sql
-└── docs/             # architecture.svg / .png, demo assets
+gridwise/
+├── ingestion/        📥 DATA INGESTION: fetch ERCOT · EIA · Open-Meteo, upload into Databricks
+│   └── sources/        ercot.py · eia.py · weather.py
+├── pipeline/         🏗️ DATABRICKS PIPELINE: 00_setup → 01_bronze → 02_silver → 03_gold
+├── ml/               🤖 MACHINE LEARNING: 04_train · 05_predict · 06_explain · 07_report_card
+├── db/               🗄️ SERVING DATABASE: Tiger Data schema + continuous aggregates  (Phase 5)
+├── backend/          🔌 API: FastAPI on Vultr                                       (Phase 5)
+├── frontend/         🖥️ DASHBOARD: Next.js at gridwise.tech                          (Phase 5)
+├── infra/            🚀 DEPLOYMENT: docker-compose · Caddy · Vultr                   (Phase 5)
+├── tools/            🧰 DEV HELPERS: login · deploy · sql · check_secrets
+├── docs/             📚 architecture image · data contract · diagram generator
+├── .github/workflows/  secret-scan (every push) · gridwise-hourly (pipeline trigger)
+└── .gitleaks.toml    secret-detection rules
 ```
+Each folder has its own `README.md` explaining what's inside and how to run it.
 
 ---
 

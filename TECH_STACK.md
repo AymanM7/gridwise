@@ -9,7 +9,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how these pieces connect and [.env.ex
 | Data sources | **gridstatus** (Python) | Live ERCOT load, RT prices, wind/solar actuals + 7-day forecasts; yearly price archive | — |
 | | **EIA-930 API** (free key) | Multi-year hourly ERCOT demand, wind, solar (ERCOT's own reports only keep a few days) | — |
 | | **Open-Meteo** API | Historical and forecast weather (no key) | — |
-| Ingestion worker | **Python `worker/`** + **GitHub Actions** cron | Fetches sources outside Databricks, uploads parquet into a UC Volume, triggers the Job | — |
+| Ingestion worker | **Python `ingestion/`** + **GitHub Actions** cron | Fetches sources outside Databricks, uploads parquet into a UC Volume, triggers the Job | — |
 | Lakehouse | **Databricks** (Free Edition) | Notebooks, Jobs, Auto Loader, serverless compute | Databricks |
 | Storage | **Delta Lake + Unity Catalog** | Bronze / Silver / Gold tables, governance | Databricks |
 | ML | **LightGBM**, **SHAP**, scikit-learn | Net load forecast, spike classifier, explanations | Databricks |
@@ -24,7 +24,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how these pieces connect and [.env.ex
 | Domain | **GoDaddy Registry** (e.g. `gridwise.tech`) | Public URL | GoDaddy |
 | Stretch | **Solana** (devnet) | Off-peak shift reward tokens | Solana |
 
-## Python packages (worker, see `worker/requirements.txt`)
+## Python packages (worker, see `ingestion/requirements.txt`)
 
 ```
 gridstatus
@@ -79,7 +79,7 @@ recharts
 
 | Risk | Fallback |
 |---|---|
-| **Free Edition blocks outbound internet** except a short trusted list (PyPI works) | The `worker/` fetches ERCOT/EIA/Open-Meteo outside Databricks and uploads parquet *into* a UC Volume; Auto Loader loads Bronze. `notebooks/00_connectivity_check` shows exactly what's blocked. |
+| **Free Edition blocks outbound internet** except a short trusted list (PyPI works) | The `ingestion/` fetches ERCOT/EIA/Open-Meteo outside Databricks and uploads parquet *into* a UC Volume; Auto Loader loads Bronze. `pipeline/00_connectivity_check` shows exactly what's blocked. |
 | Gemini API / AI Gateway external models unreachable from Free Edition | Worker `publish` step reads `gold.forecasts` via the SQL warehouse, calls Gemini, writes `gold.daily_advice` back to Databricks |
 | Tiger Data unreachable from Free Edition | Worker `publish` step syncs Gold → Tiger Data |
 | Free Edition limits (1 SQL warehouse 2X-Small, 5 concurrent job tasks, daily compute quota) | Keep the Job to ≤5 parallel tasks; if the quota runs out, run every 3 hours; backfill runs once |
